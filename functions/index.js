@@ -120,7 +120,7 @@ app.post("/", async (req, res) => {
   }
 });
 
-exports.api = functions.https.onRequest(app);
+exports.post = functions.https.onRequest(app);
 
 const generateChatId = (id1, id2) => {
   const array = [id1, id2];
