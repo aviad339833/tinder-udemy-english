@@ -12,9 +12,53 @@ app.use(express.json());
 
 app.get("/", async (req, res) => {
   try {
-    const result = await firestore.collection("users").add({ name: "Jesse" });
-    res.status(200).send(result);
+    const userId = req.query.userId;
+
+    // Get the user's profile
+    const userSnapshot = await firestore.collection("users").doc(userId).get();
+    if (!userSnapshot.exists) {
+      return res.status(404).send("User not found");
+    }
+
+    const currentUser = userSnapshot.data();
+    const userInterestInGender = currentUser.userIntrestInGender; // Assuming the field name is 'interestInGender'
+
+    if (!userInterestInGender) {
+      return res.status(400).send("User's gender preference not found");
+    }
+
+    // Get list of users from the subcollections "iLikeThem" and "IDislikeThem"
+    const likedUsersSnapshot = await firestore
+      .collection("users")
+      .doc(userId)
+      .collection("iLikeThem")
+      .get();
+    const dislikedUsersSnapshot = await firestore
+      .collection("users")
+      .doc(userId)
+      .collection("IDislikeThem")
+      .get();
+
+    const likedUserIds = likedUsersSnapshot.docs.map((doc) => doc.id);
+    const dislikedUserIds = dislikedUsersSnapshot.docs.map((doc) => doc.id);
+    const excludeIds = [userId, ...likedUserIds, ...dislikedUserIds];
+
+    // Fetch users limited to 50, excluding the current user, users from the "iLikeThem" and "IDislikeThem" collections, and matching the gender preference
+    let allUsers = await firestore
+      .collection("users")
+      .where("gender", "==", userInterestInGender)
+      .where(admin.firestore.FieldPath.documentId(), "not-in", excludeIds)
+      .limit(50)
+      .get();
+
+    const results = [];
+    allUsers.forEach((doc) => {
+      results.push(doc.data());
+    });
+
+    res.status(200).send(results);
   } catch (error) {
+    console.error("Error occurred:", error);
     res.status(500).send(error.message);
   }
 });
@@ -162,6 +206,7 @@ app.post("/", async (req, res) => {
 });
 
 exports.post = functions.https.onRequest(app);
+exports.get = functions.https.onRequest(app);
 
 const generateChatId = (id1, id2) => {
   const array = [id1, id2];
