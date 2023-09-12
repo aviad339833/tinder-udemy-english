@@ -25,7 +25,29 @@ app.post("/", async (req, res) => {
       req.body;
 
     switch (type) {
-      case "personLikesMe":
+      case "personThatIDislike":
+        // Add the disliked person to the current user's iDislikeThem collection
+        await firestore
+          .collection("users")
+          .doc(myId)
+          .collection("iDislikeThem")
+          .doc(idOfPersonThatIDontLike) // Assuming you have the ID of the disliked person
+          .set(
+            {
+              uid: idOfPersonThatIDontLike,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(), // Adding timestamp
+              documentReference: firestore
+                .collection("users")
+                .doc(idOfPersonThatIDontLike),
+            },
+            { merge: true }
+          );
+
+        res.status(200).send("Dislike recorded successfully");
+        break;
+
+      case "personThatILike":
+        // Add the current user (myId) to the liked person's theyLikeMe collection
         await firestore
           .collection("users")
           .doc(idOfPersonThatILike)
@@ -34,10 +56,29 @@ app.post("/", async (req, res) => {
           .set(
             {
               uid: myId,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(), // Adding timestamp
               documentReference: firestore.collection("users").doc(myId),
             },
             { merge: true }
           );
+
+        // Add the liked person to the current user's iLikeThem collection
+        await firestore
+          .collection("users")
+          .doc(myId)
+          .collection("iLikeThem")
+          .doc(idOfPersonThatILike)
+          .set(
+            {
+              uid: idOfPersonThatILike,
+              timestamp: admin.firestore.FieldValue.serverTimestamp(), // Adding timestamp
+              documentReference: firestore
+                .collection("users")
+                .doc(idOfPersonThatILike),
+            },
+            { merge: true }
+          );
+
         res.status(200).send("Successful");
         break;
 
