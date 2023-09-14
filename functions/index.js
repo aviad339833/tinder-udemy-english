@@ -68,6 +68,14 @@ app.post("/", async (req, res) => {
     const { type, myId, idOfPersonThatILike, idOfPersonThatIDontLike } =
       req.body;
 
+    // Log the received data
+    console.log("Received POST request:");
+    console.log(`type: ${type}`);
+    console.log(`myId: ${myId}`);
+    console.log(`idOfPersonThatILike: type: ${typeof idOfPersonThatIDontLike}`);
+    console.log(idOfPersonThatILike);
+    console.log("enter a case");
+
     switch (type) {
       case "personThatIDislike":
         // Add the disliked person to the current user's iDislikeThem collection
@@ -75,22 +83,34 @@ app.post("/", async (req, res) => {
           .collection("users")
           .doc(myId)
           .collection("iDislikeThem")
-          .doc(idOfPersonThatIDontLike) // Assuming you have the ID of the disliked person
+          .doc(idOfPersonThatILike) // Assuming you have the ID of the disliked person
           .set(
             {
-              uid: idOfPersonThatIDontLike,
+              uid: idOfPersonThatILike,
               timestamp: admin.firestore.FieldValue.serverTimestamp(), // Adding timestamp
               documentReference: firestore
                 .collection("users")
-                .doc(idOfPersonThatIDontLike),
+                .doc(idOfPersonThatILike),
             },
             { merge: true }
           );
+
+        await firestore
+          .collection("users")
+          .doc(myId)
+          .collection("theyLikeMe")
+          .doc(idOfPersonThatILike)
+          .delete();
+        res.status(200).send("Successfully Deleted");
 
         res.status(200).send("Dislike recorded successfully");
         break;
 
       case "personThatILike":
+        console.log("Handling 'personThatILike' request");
+        console.log(`myId: ${myId}`);
+        console.log(`idOfPersonThatILike: ${idOfPersonThatILike}`);
+
         // Add the current user (myId) to the liked person's theyLikeMe collection
         await firestore
           .collection("users")
@@ -105,6 +125,8 @@ app.post("/", async (req, res) => {
             },
             { merge: true }
           );
+
+        console.log(`Added ${myId} to theyLikeMe of ${idOfPersonThatILike}`);
 
         // Add the liked person to the current user's iLikeThem collection
         await firestore
@@ -123,17 +145,9 @@ app.post("/", async (req, res) => {
             { merge: true }
           );
 
-        res.status(200).send("Successful");
-        break;
+        console.log(`Added ${idOfPersonThatILike} to iLikeThem of ${myId}`);
 
-      case "IDontLikeYou":
-        await firestore
-          .collection("users")
-          .doc(myId)
-          .collection("theyLikeMe")
-          .doc(idOfPersonThatIDontLike)
-          .delete();
-        res.status(200).send("Successfully Deleted");
+        res.status(200).send("Successful");
         break;
 
       case "weLikeEachOther":
@@ -205,8 +219,100 @@ app.post("/", async (req, res) => {
   }
 });
 
-exports.post = functions.https.onRequest(app);
-exports.get = functions.https.onRequest(app);
+/**
+ * Deletes a collection in batches to avoid out-of-memory errors.
+ * Node has a default memory limit of 256MB for a 32-bit process,
+ * and 1.4GB for a 64-bit process.
+ * @param {CollectionReference} collectionRef - Reference to the collection to delete.
+ * @param {number} batchSize - Number of documents to delete in each batch.
+ */
+async function deleteCollection(collectionRef, batchSize = 500) {
+  const query = collectionRef.orderBy("__name__").limit(batchSize);
+
+  return new Promise((resolve, reject) => {
+    deleteQueryBatch(query, resolve).catch(reject);
+  });
+}
+
+async function deleteQueryBatch(query, resolve) {
+  const snapshot = await query.get();
+
+  const batchSize = snapshot.size;
+  if (batchSize === 0) {
+    // When there are no documents left, we are done
+    resolve();
+    return;
+  }
+
+  // Delete documents in a batch
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  // Recurse on the next process tick, to avoid exploding the stack.
+  process.nextTick(() => {
+    deleteQueryBatch(query, resolve);
+  });
+}
+
+app.delete("/deleteChats", async (req, res) => {
+  try {
+    const chatsRef = firestore.collection("chats");
+    await deleteCollection(chatsRef);
+    res.status(200).send("Successfully deleted the entire chats collection");
+  } catch (error) {
+    console.error("Error deleting chats collection:", error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.delete("/deleteAllUserSubcollections", async (req, res) => {
+  try {
+    // Get all user documents
+    const usersSnapshot = await firestore.collection("users").get();
+
+    const deletePromises = [];
+
+    // Loop through each user
+    usersSnapshot.docs.forEach((doc) => {
+      if (!doc.id || typeof doc.id !== "string") {
+        console.error("Invalid user ID:", doc.id);
+        return; // Skip this user and continue with the next
+      }
+
+      const userId = doc.id;
+
+      // Delete subcollections for this user
+      ["iDislikeThem", "iLikeThem", "theyLikeMe"].forEach(
+        (subCollectionName) => {
+          const subCollectionRef = firestore
+            .collection("users")
+            .doc(userId)
+            .collection(subCollectionName);
+
+          deletePromises.push(deleteCollection(subCollectionRef));
+        }
+      );
+    });
+
+    // Wait for all delete operations to complete
+    await Promise.all(deletePromises);
+    res.status(200).send("Successfully deleted subcollections for all users");
+  } catch (error) {
+    console.error("Error deleting subcollections:", error);
+    res.status(500).send(error.message);
+  }
+});
+
+// Rename the exports to correspond to specific routes
+exports.api = functions.https.onRequest(app); // This will include all the routes of your Express app
+
+// If you want to separate each route as a different cloud function (which I wouldn't recommend for scalability), you could do it like this:
+exports.getUserData = functions.https.onRequest(app);
+exports.userActions = functions.https.onRequest(app);
+exports.deleteChats = functions.https.onRequest(app);
 
 const generateChatId = (id1, id2) => {
   const array = [id1, id2];
