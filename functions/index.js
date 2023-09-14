@@ -2,6 +2,158 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const express = require("express");
 const cors = require("cors");
+const usersData = [
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F0bdnXMi9TnZ0uAztVrTWqBO3dZh1%2Fuploads%2F1694483926554000_0.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b0d",
+    ],
+    city: "Ashdod",
+    created_time: "September 11, 2023 at 9:58:35 PM UTC-4",
+    description:
+      "I enjoy outdoor activities and love to travel. Looking for someone who shares similar interests!",
+    display_name: "Natasha",
+    email: "user1@gmail.com",
+    gender: "Female",
+    uid: "0bdnXMi9TnZ0uAztVrTWqBO3dZh1",
+    userIntrestInGender: "Male",
+    year_of_birth: 1989,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F1bdnXMi9TnZ0uAztVrTWqBO3dZh2%2Fuploads%2F1694483926554000_1.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b0e",
+    ],
+    city: "New York",
+    created_time: "September 12, 2023 at 10:15:20 AM UTC-4",
+    description:
+      "A foodie who loves trying new restaurants and cuisines. Looking for someone to explore the food scene with!",
+    display_name: "Mike",
+    email: "user2@gmail.com",
+    gender: "Male",
+    uid: "1bdnXMi9TnZ0uAztVrTWqBO3dZh2",
+    userIntrestInGender: "Female",
+    year_of_birth: 1990,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F2bdnXMi9TnZ0uAztVrTWqBO3dZh3%2Fuploads%2F1694483926554000_2.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b0f",
+    ],
+    city: "Los Angeles",
+    created_time: "September 13, 2023 at 2:30:45 PM UTC-7",
+    description:
+      "Passionate about fitness and outdoor adventures. Looking for an active partner!",
+    display_name: "Lena",
+    email: "user3@gmail.com",
+    gender: "Female",
+    uid: "2bdnXMi9TnZ0uAztVrTWqBO3dZh3",
+    userIntrestInGender: "Male",
+    year_of_birth: 1985,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F3bdnXMi9TnZ0uAztVrTWqBO3dZh4%2Fuploads%2F1694483926554000_3.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b10",
+    ],
+    city: "Chicago",
+    created_time: "September 14, 2023 at 4:45:10 PM UTC-5",
+    description:
+      "An art enthusiast who loves visiting museums and galleries. Seeking someone with an appreciation for art.",
+    display_name: "David",
+    email: "user4@gmail.com",
+    gender: "Male",
+    uid: "3bdnXMi9TnZ0uAztVrTWqBO3dZh4",
+    userIntrestInGender: "Female",
+    year_of_birth: 1988,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F4bdnXMi9TnZ0uAztVrTWqBO3dZh5%2Fuploads%2F1694483926554000_4.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b11",
+    ],
+    city: "Miami",
+    created_time: "September 15, 2023 at 11:20:55 AM UTC-4",
+    description:
+      "A beach lover who enjoys water sports and sunsets. Looking for someone to share beautiful moments with.",
+    display_name: "Emily",
+    email: "user5@gmail.com",
+    gender: "Female",
+    uid: "4bdnXMi9TnZ0uAztVrTWqBO3dZh5",
+    userIntrestInGender: "Male",
+    year_of_birth: 1992,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F5bdnXMi9TnZ0uAztVrTWqBO3dZh6%2Fuploads%2F1694483926554000_5.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b12",
+    ],
+    city: "San Francisco",
+    created_time: "September 16, 2023 at 3:05:30 PM UTC-7",
+    description:
+      "Tech geek who loves coding and building cool projects. Searching for someone with similar tech interests.",
+    display_name: "Alex",
+    email: "user6@gmail.com",
+    gender: "Male",
+    uid: "5bdnXMi9TnZ0uAztVrTWqBO3dZh6",
+    userIntrestInGender: "Female",
+    year_of_birth: 1987,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F6bdnXMi9TnZ0uAztVrTWqBO3dZh7%2Fuploads%2F1694483926554000_6.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b13",
+    ],
+    city: "London",
+    created_time: "September 17, 2023 at 8:12:45 PM UTC+1",
+    description:
+      "Bookworm who enjoys reading classics and contemporary fiction. Seeking a fellow book lover.",
+    display_name: "Sophie",
+    email: "user7@gmail.com",
+    gender: "Female",
+    uid: "6bdnXMi9TnZ0uAztVrTWqBO3dZh7",
+    userIntrestInGender: "Male",
+    year_of_birth: 1991,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F7bdnXMi9TnZ0uAztVrTWqBO3dZh8%2Fuploads%2F1694483926554000_7.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b14",
+    ],
+    city: "Toronto",
+    created_time: "September 18, 2023 at 11:30:20 AM UTC-4",
+    description:
+      "Music enthusiast who enjoys attending concerts and festivals. Looking for a music-loving companion.",
+    display_name: "Daniel",
+    email: "user8@gmail.com",
+    gender: "Male",
+    uid: "7bdnXMi9TnZ0uAztVrTWqBO3dZh8",
+    userIntrestInGender: "Female",
+    year_of_birth: 1993,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F8bdnXMi9TnZ0uAztVrTWqBO3dZh9%2Fuploads%2F1694483926554000_8.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b15",
+    ],
+    city: "Sydney",
+    created_time: "September 19, 2023 at 7:55:15 PM UTC+10",
+    description:
+      "Nature lover who enjoys hiking and camping. Searching for someone who appreciates the great outdoors.",
+    display_name: "Olivia",
+    email: "user9@gmail.com",
+    gender: "Female",
+    uid: "8bdnXMi9TnZ0uAztVrTWqBO3dZh9",
+    userIntrestInGender: "Male",
+    year_of_birth: 1994,
+  },
+  {
+    aditional_photos: [
+      "https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2F9bdnXMi9TnZ0uAztVrTWqBO3dZh0%2Fuploads%2F1694483926554000_9.png?alt=media&token=956683b9-426f-43bc-82e9-3a39ad994b16",
+    ],
+    city: "Berlin",
+    created_time: "September 20, 2023 at 9:10:50 AM UTC+2",
+    description:
+      "Travel enthusiast who has explored various countries. Looking for a travel buddy to explore new destinations.",
+    display_name: "Max",
+    email: "user10@gmail.com",
+    gender: "Male",
+    uid: "9bdnXMi9TnZ0uAztVrTWqBO3dZh0",
+    userIntrestInGender: "Female",
+    year_of_birth: 1986,
+  },
+];
 
 admin.initializeApp();
 const firestore = admin.firestore();
@@ -107,10 +259,6 @@ app.post("/", async (req, res) => {
         break;
 
       case "personThatILike":
-        console.log("Handling 'personThatILike' request");
-        console.log(`myId: ${myId}`);
-        console.log(`idOfPersonThatILike: ${idOfPersonThatILike}`);
-
         // Add the current user (myId) to the liked person's theyLikeMe collection
         await firestore
           .collection("users")
@@ -146,6 +294,13 @@ app.post("/", async (req, res) => {
           );
 
         console.log(`Added ${idOfPersonThatILike} to iLikeThem of ${myId}`);
+
+        await firestore
+          .collection("users")
+          .doc(myId)
+          .collection("iDislikeThem")
+          .doc(idOfPersonThatILike)
+          .delete();
 
         res.status(200).send("Successful");
         break;
@@ -302,6 +457,24 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
     res.status(200).send("Successfully deleted subcollections for all users");
   } catch (error) {
     console.error("Error deleting subcollections:", error);
+    res.status(500).send(error.message);
+  }
+});
+
+app.post("/addUsers", async (req, res) => {
+  try {
+    const batch = firestore.batch();
+    const usersCollectionRef = firestore.collection("users");
+
+    usersData.forEach((userData) => {
+      const userRef = usersCollectionRef.doc(userData.uid);
+      batch.set(userRef, userData);
+    });
+
+    await batch.commit();
+    res.status(200).send("Users added successfully to Firestore.");
+  } catch (error) {
+    console.error("Error adding users to Firestore:", error);
     res.status(500).send(error.message);
   }
 });
