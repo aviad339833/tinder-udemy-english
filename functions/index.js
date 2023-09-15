@@ -122,6 +122,11 @@ app.post("/", async (req, res) => {
             .doc(myId)
             .get();
 
+          console.log(
+            "theyLikeMeSnapshot:",
+            JSON.stringify(theyLikeMeSnapshot)
+          );
+
           if (theyLikeMeSnapshot.exists) {
             // This means they like each other
             console.log(
