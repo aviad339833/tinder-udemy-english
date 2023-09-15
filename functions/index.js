@@ -13,7 +13,6 @@ app.use(express.json());
 app.get("/", async (req, res) => {
   try {
     const userId = req.query.userId;
-
     // Get the user's profile
     const userSnapshot = await firestore.collection("users").doc(userId).get();
     if (!userSnapshot.exists) {
@@ -127,6 +126,11 @@ app.post("/", async (req, res) => {
             JSON.stringify(theyLikeMeSnapshot)
           );
 
+          const data = theyLikeMeSnapshot.data();
+          console.log("theyLikeMeSnapshot data:", JSON.stringify(data));
+
+          console.log("Full Snapshot:", JSON.stringify(theyLikeMeSnapshot));
+
           if (theyLikeMeSnapshot.exists) {
             // This means they like each other
             console.log(
@@ -181,21 +185,21 @@ app.post("/", async (req, res) => {
             res.status(200).send("We like Each other successfully done");
           } else {
             // Add the current user (myId) to the liked person's theyLikeMe collection
-            // await firestore
-            //   .collection("users")
-            //   .doc(myId)
-            //   .collection("iLikeThem")
-            //   .doc(idOfTheOtherPerson)
-            //   .set(
-            //     {
-            //       uid: idOfTheOtherPerson,
-            //       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            //       documentReference: firestore
-            //         .collection("users")
-            //         .doc(idOfTheOtherPerson),
-            //     },
-            //     { merge: true }
-            //   );
+            await firestore
+              .collection("users")
+              .doc(myId)
+              .collection("iLikeThem")
+              .doc(idOfTheOtherPerson)
+              .set(
+                {
+                  uid: idOfTheOtherPerson,
+                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                  documentReference: firestore
+                    .collection("users")
+                    .doc(idOfTheOtherPerson),
+                },
+                { merge: true }
+              );
 
             console.log(
               "The other person hasn't liked you yet. Proceeding with the liking process."
