@@ -13,21 +13,17 @@ app.use(express.json());
 app.get("/", async (req, res) => {
   try {
     const userId = req.query.userId;
-    console.log("Received GET request for user with ID:", userId);
 
     // Get the user's profile
     const userSnapshot = await firestore.collection("users").doc(userId).get();
     if (!userSnapshot.exists) {
-      console.log("User not found for ID:", userId);
       return res.status(404).send("User not found");
     }
 
     const currentUser = userSnapshot.data();
     const userInterestInGender = currentUser.userInterestInGender;
-    console.log("User's gender preference:", userInterestInGender);
 
     if (!userInterestInGender) {
-      console.log("User's gender preference not found for ID:", userId);
       return res.status(400).send("User's gender preference not found");
     }
 
@@ -60,7 +56,6 @@ app.get("/", async (req, res) => {
       results.push(doc.data());
     });
 
-    console.log("Sending response with results:", results);
     res.status(200).send(results);
   } catch (error) {
     console.error("Error occurred:", error);
@@ -119,6 +114,7 @@ app.post("/", async (req, res) => {
 
         try {
           // Check if the clicked user has liked the current user
+          console.log("Checking if the other person likes you...");
           const theyLikeMeSnapshot = await firestore
             .collection("users")
             .doc(idOfTheOtherPerson)
@@ -128,6 +124,9 @@ app.post("/", async (req, res) => {
 
           if (theyLikeMeSnapshot.exists) {
             // This means they like each other
+            console.log(
+              "The other person likes you too! Proceeding with mutual liking process."
+            );
             const otherPersonObject = {
               uid: idOfTheOtherPerson,
               documentReference: firestore
@@ -138,6 +137,7 @@ app.post("/", async (req, res) => {
               uid: myId,
               documentReference: firestore.collection("users").doc(myId),
             };
+            console.log("Setting weLikeEachOther for both users...");
             await firestore
               .collection("users")
               .doc(idOfTheOtherPerson)
@@ -150,13 +150,18 @@ app.post("/", async (req, res) => {
               .collection("weLikeEachOther")
               .doc(idOfTheOtherPerson)
               .set(otherPersonObject, { merge: true });
+
+            console.log("Deleting 'theyLikeMe' entry...");
             await firestore
               .collection("users")
               .doc(myId)
               .collection("theyLikeMe")
               .doc(idOfTheOtherPerson)
               .delete();
+
+            console.log("Generating chat ID for mutual liking...");
             const idOfDocument = generateChatId(myId, idOfTheOtherPerson);
+            console.log("Storing chat info...");
             await firestore
               .collection("chats")
               .doc(idOfDocument)
@@ -167,24 +172,31 @@ app.post("/", async (req, res) => {
                 },
                 { merge: true }
               );
+            console.log("We like Each other process completed successfully.");
             res.status(200).send("We like Each other successfully done");
           } else {
             // Add the current user (myId) to the liked person's theyLikeMe collection
-            await firestore
-              .collection("users")
-              .doc(myId)
-              .collection("iLikeThem")
-              .doc(idOfTheOtherPerson)
-              .set(
-                {
-                  uid: idOfTheOtherPerson,
-                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                  documentReference: firestore
-                    .collection("users")
-                    .doc(idOfTheOtherPerson),
-                },
-                { merge: true }
-              );
+            // await firestore
+            //   .collection("users")
+            //   .doc(myId)
+            //   .collection("iLikeThem")
+            //   .doc(idOfTheOtherPerson)
+            //   .set(
+            //     {
+            //       uid: idOfTheOtherPerson,
+            //       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            //       documentReference: firestore
+            //         .collection("users")
+            //         .doc(idOfTheOtherPerson),
+            //     },
+            //     { merge: true }
+            //   );
+
+            console.log(
+              "The other person hasn't liked you yet. Proceeding with the liking process."
+            );
+
+            console.log("Setting 'theyLikeMe' for the other person...");
             await firestore
               .collection("users")
               .doc(idOfTheOtherPerson)
@@ -198,7 +210,7 @@ app.post("/", async (req, res) => {
                 },
                 { merge: true }
               );
-            console.log("You liked a person successfully."); // Logging success message
+            console.log("You liked a person successfully.");
             res.status(200).send("You liked a person successfully");
           }
         } catch (error) {
