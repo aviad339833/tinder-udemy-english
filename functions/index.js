@@ -74,7 +74,12 @@ app.get("/", async (req, res) => {
       .limit(50)
       .get();
 
-    const results = allUsers.docs.map((doc) => doc.data());
+    const results = allUsers.docs
+      .map((doc) => doc.data())
+      .filter(
+        (user) =>
+          !likedUserIds.includes(user.id) && !dislikedUserIds.includes(user.id)
+      );
 
     console.log(
       "Sending response with",
@@ -114,8 +119,10 @@ app.post("/userActions", async (req, res) => {
 
         console.log("Checking if the other person has liked me...");
         const theirLikes = await transaction.get(
-          otherPersonRef.collection("usersThatIlike").doc(myId)
+          otherPersonRef.collection("usersThatILike").doc(myId)
         );
+
+        const currentTimeStamp = admin.firestore.FieldValue.serverTimestamp();
 
         if (type === "personThatILike" && theirLikes.exists) {
           console.log(
@@ -125,12 +132,16 @@ app.post("/userActions", async (req, res) => {
             idOfTheOtherPerson
           );
 
-          // Add both user's IDs to each other's "matches" subcollections
+          // Add both user's IDs, references, and timestamps to each other's "matches" subcollections
           transaction.set(myRef.collection("matches").doc(idOfTheOtherPerson), {
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            userId: idOfTheOtherPerson,
+            timestamp: currentTimeStamp,
+            userRef: otherPersonRef,
           });
           transaction.set(otherPersonRef.collection("matches").doc(myId), {
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            userId: myId,
+            timestamp: currentTimeStamp,
+            userRef: myRef,
           });
 
           // Create a new chat room for them
@@ -139,7 +150,7 @@ app.post("/userActions", async (req, res) => {
 
           transaction.set(firestore.collection("chats").doc(chatRoomId), {
             users: [myId, idOfTheOtherPerson],
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: currentTimeStamp,
           });
           console.log("Saved chat room to DB.");
 
@@ -152,21 +163,37 @@ app.post("/userActions", async (req, res) => {
             chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
           });
           console.log("Updated user data in DB.");
-        }
-
-        if (type === "personThatILike") {
+        } else if (type === "personThatILike") {
+          // Add the like to my list of likes
           transaction.set(
-            myRef.collection("usersThatIlike").doc(idOfTheOtherPerson),
+            myRef.collection("usersThatILike").doc(idOfTheOtherPerson),
             {
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              userId: idOfTheOtherPerson,
+              timestamp: currentTimeStamp,
+              userRef: otherPersonRef,
             }
           );
           console.log("Like added to DB.");
+
+          // Add my ID to the other person's "usersThatLikedMe" subcollection
+          transaction.set(
+            otherPersonRef.collection("usersThatLikedMe").doc(myId),
+            {
+              userId: myId,
+              timestamp: currentTimeStamp,
+              userRef: myRef,
+            }
+          );
+          console.log(
+            "Added me to other person's 'usersThatLikedMe' subcollection."
+          );
         } else if (type === "personThatIDislike") {
           transaction.set(
             myRef.collection("iDislikeThem").doc(idOfTheOtherPerson),
             {
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              userId: idOfTheOtherPerson,
+              timestamp: currentTimeStamp,
+              userRef: otherPersonRef,
             }
           );
           console.log("Dislike added to DB.");
@@ -242,9 +269,24 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
       }
 
       const userId = doc.id;
+      const userData = doc.data();
+
+      // If user has "chats" field, loop through each chat and delete the respective chat document
+      if (userData.chats && Array.isArray(userData.chats)) {
+        userData.chats.forEach((chatId) => {
+          const chatDocumentRef = chatsRef.doc(chatId);
+          deletePromises.push(chatDocumentRef.delete());
+        });
+      }
+
+      // Delete the "chats" field from the user document
+      const userRef = firestore.collection("users").doc(userId);
+      deletePromises.push(
+        userRef.update({ chats: admin.firestore.FieldValue.delete() })
+      );
 
       // Delete subcollections for this user
-      ["iDislikeThem", "usersThatIlike", "matches"].forEach(
+      ["usersThatILike", "iDislikeThem", "matches", "usersThatLikedMe"].forEach(
         (subCollectionName) => {
           const subCollectionRef = firestore
             .collection("users")
@@ -261,10 +303,10 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
     res
       .status(200)
       .send(
-        "Successfully deleted the chats collection and subcollections for all users"
+        "Successfully deleted the chats collection, user chats field, and subcollections for all users"
       );
   } catch (error) {
-    console.error("Error deleting collections:", error);
+    console.error("Error deleting collections and chat fields:", error);
     res.status(500).send(error.message);
   }
 });
