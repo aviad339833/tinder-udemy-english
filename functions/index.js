@@ -17,7 +17,6 @@ app.get("/", async (req, res) => {
 
     // Validate userId
     if (!userId || typeof userId !== "string" || userId.length !== 28) {
-      // Assume a valid user ID is a string of 28 characters.
       console.warn("Invalid or missing userId received:", userId);
       return res.status(400).send("Invalid or missing userId.");
     }
@@ -38,35 +37,20 @@ app.get("/", async (req, res) => {
       return res.status(400).send("User's gender preference not found");
     }
 
-    // Fetch list of users from subcollections "usersThatIlike" and "iDislikeThem"
-    const likedUsersSnapshot = await firestore
-      .collection("users")
-      .doc(userId)
-      .collection("usersThatIlike")
-      .listDocuments();
+    // Fetch list of users from subcollections
+    const likedUserIds = await fetchUserIdsInBatches(
+      firestore.collection("users").doc(userId).collection("usersThatILike")
+    );
 
-    const dislikedUsersSnapshot = await firestore
-      .collection("users")
-      .doc(userId)
-      .collection("iDislikeThem")
-      .listDocuments();
+    const dislikedUserIds = await fetchUserIdsInBatches(
+      firestore.collection("users").doc(userId).collection("iDislikeThem")
+    );
 
-    const likedUserIds = likedUsersSnapshot.map((doc) => doc.id);
-    const dislikedUserIds = dislikedUsersSnapshot.map((doc) => doc.id);
+    console.log("Liked User IDs:", likedUserIds);
+    console.log("Disliked User IDs:", dislikedUserIds);
+
     const excludeIds = [userId, ...likedUserIds, ...dislikedUserIds];
 
-    // Limitation of Firestore's "not-in" operator: it only accepts a maximum of 10 values.
-    if (excludeIds.length > 10) {
-      console.warn(
-        "Too many users in liked/disliked lists for userId:",
-        userId
-      );
-      return res
-        .status(500)
-        .send("Too many exclusions. Please refine your choices.");
-    }
-
-    // Fetch users limited to 50, excluding the current user, users from the "usersThatIlike" and "iDislikeThem" collections, and matching the gender preference
     const allUsers = await firestore
       .collection("users")
       .where("gender", "==", userInterestInGender)
@@ -74,12 +58,7 @@ app.get("/", async (req, res) => {
       .limit(50)
       .get();
 
-    const results = allUsers.docs
-      .map((doc) => doc.data())
-      .filter(
-        (user) =>
-          !likedUserIds.includes(user.id) && !dislikedUserIds.includes(user.id)
-      );
+    const results = allUsers.docs.map((doc) => doc.data());
 
     console.log(
       "Sending response with",
@@ -93,6 +72,60 @@ app.get("/", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+async function fetchUserIdsInBatches(collectionRef) {
+  const userIDs = [];
+  let query = collectionRef.limit(10); // Fetch in batches of 10
+
+  while (true) {
+    const snapshot = await query.get();
+    if (snapshot.empty) break;
+
+    snapshot.forEach((doc) => {
+      userIDs.push(doc.id);
+    });
+
+    // Fetch the next batch
+    const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+    query = collectionRef.startAfter(lastVisible).limit(10);
+  }
+
+  return userIDs;
+}
+
+// NEWWWWWW
+// app.get("/getLikedUsers", async (req, res) => {
+//   try {
+//     const userId = req.query.userId;
+//     console.log("Received userId:", userId);
+
+//     // Validate userId
+//     if (!userId || typeof userId !== "string" || userId.length !== 28) {
+//       // Assume a valid user ID is a string of 28 characters.
+//       console.warn("Invalid or missing userId received:", userId);
+//       return res.status(400).send("Invalid or missing userId.");
+//     }
+
+//     // Fetch the liked users from the "usersThatILike" subcollection
+//     const likedUsersSnapshot = await firestore
+//       .collection("users")
+//       .doc(userId)
+//       .collection("usersThatILike")
+//       .get();
+
+//     // Extract liked user data
+//     const likedUsersData = likedUsersSnapshot.docs.map((doc) => doc.data());
+
+//     console.log("Liked Users:", likedUsersData);
+
+//     res.status(200).send(likedUsersData);
+//   } catch (error) {
+//     console.error("Error occurred:", error);
+//     res.status(500).send(error.message);
+//   }
+// });
+
+// NEWWWWWW
 
 app.post("/userActions", async (req, res) => {
   try {
