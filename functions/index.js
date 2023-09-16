@@ -13,9 +13,20 @@ app.use(express.json());
 app.get("/", async (req, res) => {
   try {
     const userId = req.query.userId;
-    // Get the user's profile
+    console.log("Received userId:", userId);
+
+    // Validate userId
+    if (!userId || typeof userId !== "string" || userId.length !== 28) {
+      // Assume a valid user ID is a string of 28 characters.
+      console.warn("Invalid or missing userId received:", userId);
+      return res.status(400).send("Invalid or missing userId.");
+    }
+
+    // Fetch the user's profile
     const userSnapshot = await firestore.collection("users").doc(userId).get();
+
     if (!userSnapshot.exists) {
+      console.warn("User not found for userId:", userId);
       return res.status(404).send("User not found");
     }
 
@@ -23,38 +34,54 @@ app.get("/", async (req, res) => {
     const userInterestInGender = currentUser.userInterestInGender;
 
     if (!userInterestInGender) {
+      console.warn("User's gender preference not found for userId:", userId);
       return res.status(400).send("User's gender preference not found");
     }
 
-    // Get list of users from the subcollections "iLikeThem" and "iDislikeThem"
+    // Fetch list of users from subcollections "usersThatIlike" and "iDislikeThem"
     const likedUsersSnapshot = await firestore
       .collection("users")
       .doc(userId)
-      .collection("iLikeThem")
-      .get();
+      .collection("usersThatIlike")
+      .listDocuments();
+
     const dislikedUsersSnapshot = await firestore
       .collection("users")
       .doc(userId)
       .collection("iDislikeThem")
-      .get();
+      .listDocuments();
 
-    const likedUserIds = likedUsersSnapshot.docs.map((doc) => doc.id);
-    const dislikedUserIds = dislikedUsersSnapshot.docs.map((doc) => doc.id);
+    const likedUserIds = likedUsersSnapshot.map((doc) => doc.id);
+    const dislikedUserIds = dislikedUsersSnapshot.map((doc) => doc.id);
     const excludeIds = [userId, ...likedUserIds, ...dislikedUserIds];
 
-    // Fetch users limited to 50, excluding the current user, users from the "iLikeThem" and "iDislikeThem" collections, and matching the gender preference
-    let allUsers = await firestore
+    // Limitation of Firestore's "not-in" operator: it only accepts a maximum of 10 values.
+    if (excludeIds.length > 10) {
+      console.warn(
+        "Too many users in liked/disliked lists for userId:",
+        userId
+      );
+      return res
+        .status(500)
+        .send("Too many exclusions. Please refine your choices.");
+    }
+
+    // Fetch users limited to 50, excluding the current user, users from the "usersThatIlike" and "iDislikeThem" collections, and matching the gender preference
+    const allUsers = await firestore
       .collection("users")
       .where("gender", "==", userInterestInGender)
       .where(admin.firestore.FieldPath.documentId(), "not-in", excludeIds)
       .limit(50)
       .get();
 
-    const results = [];
-    allUsers.forEach((doc) => {
-      results.push(doc.data());
-    });
+    const results = allUsers.docs.map((doc) => doc.data());
 
+    console.log(
+      "Sending response with",
+      results.length,
+      "users for userId:",
+      userId
+    );
     res.status(200).send(results);
   } catch (error) {
     console.error("Error occurred:", error);
@@ -62,195 +89,90 @@ app.get("/", async (req, res) => {
   }
 });
 
-app.post("/", async (req, res) => {
+app.post("/userActions", async (req, res) => {
   try {
     const { type, myId, idOfTheOtherPerson } = req.body;
 
-    // Log the received data
-    console.log("Received POST request:");
-    console.log(`type: ${type}`);
-    console.log(`myId: ${myId}`);
+    console.log("Received request:", { type, myId, idOfTheOtherPerson });
 
-    switch (type) {
-      case "personThatIDislike":
-        try {
-          // Add the disliked person to the current user's iDislikeThem collection
-          await firestore
-            .collection("users")
-            .doc(myId)
-            .collection("iDislikeThem")
-            .doc(idOfTheOtherPerson)
-            .set(
-              {
-                uid: idOfTheOtherPerson,
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                documentReference: firestore
-                  .collection("users")
-                  .doc(idOfTheOtherPerson),
-              },
-              { merge: true }
-            );
+    if (type === "personThatILike" || type === "personThatIDislike") {
+      await firestore.runTransaction(async (transaction) => {
+        console.log("Initiating transaction...");
 
-          // Delete the liked person from the current user's iLikeThem collection
-          await firestore
-            .collection("users")
-            .doc(myId)
-            .collection("iLikeThem")
-            .doc(idOfTheOtherPerson)
-            .delete();
+        const otherPersonRef = firestore
+          .collection("users")
+          .doc(idOfTheOtherPerson);
+        const myRef = firestore.collection("users").doc(myId);
 
-          res.status(200).send("Dislike recorded successfully");
-        } catch (error) {
-          console.error("Error in personThatIDislike:", error);
-          res.status(500).send(error.message || "Internal server error");
+        console.log("Fetching other person's data...");
+        const otherPersonData = await transaction.get(otherPersonRef);
+
+        if (!otherPersonData.exists) {
+          console.log("Other person does not exist. Exiting transaction.");
+          return; // Exit the transaction
         }
-        break;
 
-      case "personThatILike":
-        console.log("Processing request for 'personThatILike'.");
-        console.log("myId:", myId); // Logging the current user's ID
-        console.log("idOfTheOtherPerson:", idOfTheOtherPerson); // Logging the other person's ID
+        console.log("Checking if the other person has liked me...");
+        const theirLikes = await transaction.get(
+          otherPersonRef.collection("usersThatIlike").doc(myId)
+        );
 
-        try {
-          // Check if the clicked user has liked the current user
-          console.log("Checking if the other person likes you...");
-          const theyLikeMeSnapshot = await firestore
-            .collection("users")
-            .doc(idOfTheOtherPerson)
-            .collection("theyLikeMe")
-            .doc(myId)
-            .get();
-
+        if (type === "personThatILike" && theirLikes.exists) {
           console.log(
-            "theyLikeMeSnapshot:",
-            JSON.stringify(theyLikeMeSnapshot)
+            "Mutual like situation detected between",
+            myId,
+            "and",
+            idOfTheOtherPerson
           );
 
-          const data = theyLikeMeSnapshot.data();
-          console.log("theyLikeMeSnapshot data:", JSON.stringify(data));
+          // Create a new chat room for them
+          const chatRoomId = firestore.collection("chats").doc().id;
+          console.log("Generating chat room with ID:", chatRoomId);
 
-          console.log("Full Snapshot:", JSON.stringify(theyLikeMeSnapshot));
+          transaction.set(firestore.collection("chats").doc(chatRoomId), {
+            users: [myId, idOfTheOtherPerson],
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          console.log("Saved chat room to DB.");
 
-          if (theyLikeMeSnapshot.exists) {
-            // This means they like each other
-            console.log(
-              "The other person likes you too! Proceeding with mutual liking process."
-            );
-            const otherPersonObject = {
-              uid: idOfTheOtherPerson,
-              documentReference: firestore
-                .collection("users")
-                .doc(idOfTheOtherPerson),
-            };
-            const myObject = {
-              uid: myId,
-              documentReference: firestore.collection("users").doc(myId),
-            };
-            console.log("Setting weLikeEachOther for both users...");
-            await firestore
-              .collection("users")
-              .doc(idOfTheOtherPerson)
-              .collection("weLikeEachOther")
-              .doc(myId)
-              .set(myObject, { merge: true });
-            await firestore
-              .collection("users")
-              .doc(myId)
-              .collection("weLikeEachOther")
-              .doc(idOfTheOtherPerson)
-              .set(otherPersonObject, { merge: true });
+          // Update user documents to include chat room ID
+          console.log("Updating user data with chat room ID...");
 
-            console.log("Deleting 'theyLikeMe' entry...");
-            await firestore
-              .collection("users")
-              .doc(myId)
-              .collection("theyLikeMe")
-              .doc(idOfTheOtherPerson)
-              .delete();
+          transaction.update(myRef, {
+            chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
+          });
 
-            console.log("Generating chat ID for mutual liking...");
-            const idOfDocument = generateChatId(myId, idOfTheOtherPerson);
-            console.log("Storing chat info...");
-            await firestore
-              .collection("chats")
-              .doc(idOfDocument)
-              .set(
-                {
-                  idsConcatenated: idOfDocument,
-                  arrayOfPeopleInConversation: [myId, idOfTheOtherPerson],
-                },
-                { merge: true }
-              );
-            console.log("We like Each other process completed successfully.");
-            res.status(200).send("We like Each other successfully done");
-          } else {
-            // Add the current user (myId) to the liked person's theyLikeMe collection
-            await firestore
-              .collection("users")
-              .doc(myId)
-              .collection("iLikeThem")
-              .doc(idOfTheOtherPerson)
-              .set(
-                {
-                  uid: idOfTheOtherPerson,
-                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                  documentReference: firestore
-                    .collection("users")
-                    .doc(idOfTheOtherPerson),
-                },
-                { merge: true }
-              );
+          transaction.update(otherPersonRef, {
+            chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
+          });
 
-            console.log(
-              "The other person hasn't liked you yet. Proceeding with the liking process."
-            );
-
-            console.log("Setting 'theyLikeMe' for the other person...");
-            await firestore
-              .collection("users")
-              .doc(idOfTheOtherPerson)
-              .collection("theyLikeMe")
-              .doc(myId)
-              .set(
-                {
-                  uid: myId,
-                  timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                  documentReference: firestore.collection("users").doc(myId),
-                },
-                { merge: true }
-              );
-            console.log("You liked a person successfully.");
-            res.status(200).send("You liked a person successfully");
-          }
-        } catch (error) {
-          console.error("Error in personThatILike:", error);
-          res.status(500).send(error.message || "Internal server error");
+          console.log("Updated user data in DB.");
         }
-        break;
 
-      case "breakMatch":
-        const id = generateChatId(myId, idOfTheOtherPerson);
-        const listMessageDocuments = await firestore
-          .collection("chats")
-          .doc(id)
-          .collection("messages")
-          .listDocuments();
-        listMessageDocuments.forEach((eachDoc) => {
-          eachDoc.delete();
-        });
-        await firestore.collection("chats").doc(id).delete();
-        const path1 = `users/${myId}/weLikeEachOther/${idOfTheOtherPerson}`;
-        const path2 = `users/${idOfTheOtherPerson}/weLikeEachOther/${myId}`;
-        await firestore.doc(path1).delete();
-        await firestore.doc(path2).delete();
-        res.status(200).send("Deletion successful");
-        break;
+        if (type === "personThatILike") {
+          transaction.set(
+            myRef.collection("usersThatIlike").doc(idOfTheOtherPerson),
+            { timestamp: admin.firestore.FieldValue.serverTimestamp() }
+          );
+          console.log("Like added to DB.");
+        } else if (type === "personThatIDislike") {
+          transaction.set(
+            myRef.collection("iDislikeThem").doc(idOfTheOtherPerson),
+            { timestamp: admin.firestore.FieldValue.serverTimestamp() }
+          );
+          console.log("Dislike added to DB.");
+        }
+      });
 
-      default:
-        res.status(400).send("Invalid type provided");
+      console.log("Transaction completed successfully!");
+      res.send("Operation completed successfully!");
+    } else {
+      console.log("Invalid request type:", type);
+      res.status(400).send("Invalid request type.");
     }
   } catch (error) {
-    res.status(500).send(error.message);
+    console.error("Transaction Error:", error);
+    res.status(500).send("An error occurred.");
   }
 });
 
@@ -292,23 +214,16 @@ async function deleteQueryBatch(query, resolve) {
   });
 }
 
-app.delete("/deleteChats", async (req, res) => {
-  try {
-    const chatsRef = firestore.collection("chats");
-    await deleteCollection(chatsRef);
-    res.status(200).send("Successfully deleted the entire chats collection");
-  } catch (error) {
-    console.error("Error deleting chats collection:", error);
-    res.status(500).send(error.message);
-  }
-});
-
 app.delete("/deleteAllUserSubcollections", async (req, res) => {
   try {
+    const deletePromises = [];
+
+    // Delete main chats collection
+    const chatsRef = firestore.collection("chats");
+    deletePromises.push(deleteCollection(chatsRef));
+
     // Get all user documents
     const usersSnapshot = await firestore.collection("users").get();
-
-    const deletePromises = [];
 
     // Loop through each user
     usersSnapshot.docs.forEach((doc) => {
@@ -320,7 +235,7 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
       const userId = doc.id;
 
       // Delete subcollections for this user
-      ["iDislikeThem", "iLikeThem", "theyLikeMe"].forEach(
+      ["iDislikeThem", "iLikeThem", "theyLikeMe", "weLikeEachOther"].forEach(
         (subCollectionName) => {
           const subCollectionRef = firestore
             .collection("users")
@@ -334,20 +249,19 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
 
     // Wait for all delete operations to complete
     await Promise.all(deletePromises);
-    res.status(200).send("Successfully deleted subcollections for all users");
+    res
+      .status(200)
+      .send(
+        "Successfully deleted the chats collection and subcollections for all users"
+      );
   } catch (error) {
-    console.error("Error deleting subcollections:", error);
+    console.error("Error deleting collections:", error);
     res.status(500).send(error.message);
   }
 });
 
 // Rename the exports to correspond to specific routes
 exports.api = functions.https.onRequest(app); // This will include all the routes of your Express app
-
-// If you want to separate each route as a different cloud function (which I wouldn't recommend for scalability), you could do it like this:
-exports.getUserData = functions.https.onRequest(app);
-exports.userActions = functions.https.onRequest(app);
-exports.deleteChats = functions.https.onRequest(app);
 
 const generateChatId = (id1, id2) => {
   const array = [id1, id2];
