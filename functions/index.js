@@ -125,6 +125,14 @@ app.post("/userActions", async (req, res) => {
             idOfTheOtherPerson
           );
 
+          // Add both user's IDs to each other's "matches" subcollections
+          transaction.set(myRef.collection("matches").doc(idOfTheOtherPerson), {
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          transaction.set(otherPersonRef.collection("matches").doc(myId), {
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          });
+
           // Create a new chat room for them
           const chatRoomId = firestore.collection("chats").doc().id;
           console.log("Generating chat room with ID:", chatRoomId);
@@ -137,28 +145,29 @@ app.post("/userActions", async (req, res) => {
 
           // Update user documents to include chat room ID
           console.log("Updating user data with chat room ID...");
-
           transaction.update(myRef, {
             chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
           });
-
           transaction.update(otherPersonRef, {
             chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
           });
-
           console.log("Updated user data in DB.");
         }
 
         if (type === "personThatILike") {
           transaction.set(
             myRef.collection("usersThatIlike").doc(idOfTheOtherPerson),
-            { timestamp: admin.firestore.FieldValue.serverTimestamp() }
+            {
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            }
           );
           console.log("Like added to DB.");
         } else if (type === "personThatIDislike") {
           transaction.set(
             myRef.collection("iDislikeThem").doc(idOfTheOtherPerson),
-            { timestamp: admin.firestore.FieldValue.serverTimestamp() }
+            {
+              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            }
           );
           console.log("Dislike added to DB.");
         }
@@ -235,7 +244,7 @@ app.delete("/deleteAllUserSubcollections", async (req, res) => {
       const userId = doc.id;
 
       // Delete subcollections for this user
-      ["iDislikeThem", "iLikeThem", "theyLikeMe", "weLikeEachOther"].forEach(
+      ["iDislikeThem", "usersThatIlike", "matches"].forEach(
         (subCollectionName) => {
           const subCollectionRef = firestore
             .collection("users")
