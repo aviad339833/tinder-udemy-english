@@ -10,31 +10,56 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+const TIMEOUT_DURATION = 10000; // 10 seconds
+
+// Utility function for sending error responses.
+function sendErrorResponse(res, status, message) {
+  console.error(message);
+  if (process.env.NODE_ENV !== "production") {
+    res.status(status).send(message);
+  } else {
+    res.status(status).send("An error occurred. Please try again.");
+  }
+}
+
 app.get("/", async (req, res) => {
+  let timeout;
+
   try {
+    timeout = setTimeout(() => {
+      sendErrorResponse(res, 500, "Request timed out.");
+    }, TIMEOUT_DURATION);
+
     const userId = req.query.userId;
     console.log("Received userId:", userId);
 
-    // Validate userId
     if (!userId || typeof userId !== "string" || userId.length !== 28) {
-      console.warn("Invalid or missing userId received:", userId);
-      return res.status(400).send("Invalid or missing userId.");
+      return sendErrorResponse(
+        res,
+        400,
+        `Invalid or missing userId received: ${userId}`
+      );
     }
 
-    // Fetch the user's profile
     const userSnapshot = await firestore.collection("users").doc(userId).get();
 
     if (!userSnapshot.exists) {
-      console.warn("User not found for userId:", userId);
-      return res.status(404).send("User not found");
+      return sendErrorResponse(
+        res,
+        404,
+        `User not found for userId: ${userId}`
+      );
     }
 
     const currentUser = userSnapshot.data();
     const userInterestInGender = currentUser.userInterestInGender;
 
     if (!userInterestInGender) {
-      console.warn("User's gender preference not found for userId:", userId);
-      return res.status(400).send("User's gender preference not found");
+      return sendErrorResponse(
+        res,
+        400,
+        `User's gender preference not found for userId: ${userId}`
+      );
     }
 
     // Fetch list of users from subcollections
@@ -66,10 +91,12 @@ app.get("/", async (req, res) => {
       "users for userId:",
       userId
     );
+
+    clearTimeout(timeout); // Clear the timeout before sending the response
     res.status(200).send(results);
   } catch (error) {
-    console.error("Error occurred:", error);
-    res.status(500).send(error.message);
+    clearTimeout(timeout);
+    sendErrorResponse(res, 500, `Error occurred: ${error.message}`);
   }
 });
 
@@ -92,40 +119,6 @@ async function fetchUserIdsInBatches(collectionRef) {
 
   return userIDs;
 }
-
-// NEWWWWWW
-// app.get("/getLikedUsers", async (req, res) => {
-//   try {
-//     const userId = req.query.userId;
-//     console.log("Received userId:", userId);
-
-//     // Validate userId
-//     if (!userId || typeof userId !== "string" || userId.length !== 28) {
-//       // Assume a valid user ID is a string of 28 characters.
-//       console.warn("Invalid or missing userId received:", userId);
-//       return res.status(400).send("Invalid or missing userId.");
-//     }
-
-//     // Fetch the liked users from the "usersThatILike" subcollection
-//     const likedUsersSnapshot = await firestore
-//       .collection("users")
-//       .doc(userId)
-//       .collection("usersThatILike")
-//       .get();
-
-//     // Extract liked user data
-//     const likedUsersData = likedUsersSnapshot.docs.map((doc) => doc.data());
-
-//     console.log("Liked Users:", likedUsersData);
-
-//     res.status(200).send(likedUsersData);
-//   } catch (error) {
-//     console.error("Error occurred:", error);
-//     res.status(500).send(error.message);
-//   }
-// });
-
-// NEWWWWWW
 
 app.post("/userActions", async (req, res) => {
   try {
@@ -196,8 +189,10 @@ app.post("/userActions", async (req, res) => {
             chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
           });
           console.log("Updated user data in DB.");
-        } else if (type === "personThatILike") {
-          // Add the like to my list of likes
+        }
+
+        if (type === "personThatILike") {
+          // Add the liked user to the current user's "usersThatILike" subcollection
           transaction.set(
             myRef.collection("usersThatILike").doc(idOfTheOtherPerson),
             {
@@ -208,7 +203,7 @@ app.post("/userActions", async (req, res) => {
           );
           console.log("Like added to DB.");
 
-          // Add my ID to the other person's "usersThatLikedMe" subcollection
+          // Add the current user to the liked user's "usersThatLikedMe" subcollection
           transaction.set(
             otherPersonRef.collection("usersThatLikedMe").doc(myId),
             {
