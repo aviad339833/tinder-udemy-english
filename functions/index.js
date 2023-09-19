@@ -21,6 +21,7 @@ function sendErrorResponse(res, status, message) {
     res.status(status).send("An error occurred. Please try again.");
   }
 }
+// test
 
 app.get("/", async (req, res) => {
   let timeout;
