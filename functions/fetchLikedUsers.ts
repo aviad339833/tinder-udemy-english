@@ -1,6 +1,7 @@
 
 import { Request, Response } from 'express';
 import { Firestore } from '@google-cloud/firestore';
+import { getUserIdsFromSubCollection, getUsersByIDs } from './fetchUtils';
 
 export async function fetchLikedUsers(req: Request, res: Response, firestore: Firestore): Promise<void> {
     try {
@@ -17,20 +18,21 @@ export async function fetchLikedUsers(req: Request, res: Response, firestore: Fi
                 .collection('usersThatILike')
         );
 
-        const notInMatches: string[] = await Promise.all(likedUserIDs.map(async (userId: string) => {
+        const notInMatches: string[] = (await Promise.all(likedUserIDs.map(async (userId: string) => {
             try {
                 const snapshot = await firestore
                     .collection('users')
                     .doc(userId)
                     .collection('matches')
                     .get();
-
-                return snapshot.empty ? userId : null; 
+        
+                return snapshot.empty ? userId : null;
             } catch (error) {
                 console.log(`[ERROR] Error checking if user ${userId} is in 'matches'. Error:`, error);
-                return null; 
+                return null;
             }
-        }));
+        }))).filter(id => id !== null) as string[];
+        
 
         const filteredMatches = notInMatches.filter(id => id !== null) as string[];
 
@@ -45,7 +47,7 @@ export async function fetchLikedUsers(req: Request, res: Response, firestore: Fi
 
         sendSuccessResponse(res, likedUsers);
     } catch (error) {
-        console.log(`[ERROR] Failed to fetch user IDs and their documents not in 'matches' for user: ${userId}. Error:`, error);
+        console.log(`[ERROR] Failed to fetch user IDs and their documents not in 'matches' for user:. Error:`, error);
         sendErrorResponse(res, 500, 'Error fetching liked user documents.');
     }
 }
