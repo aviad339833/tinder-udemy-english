@@ -16,9 +16,8 @@ app.use(express.json());
 // Import your utility functions
 const {
     sendErrorResponse,
-    sendSuccessResponse,
     log,
-    documentExists,
+
 } = require('./utils');
 const deleteAllUserSubcollections = require('./deleteAllUserSubcollections');
 const { handleUserAction } = require('./userActions');
@@ -26,9 +25,6 @@ const fetchAllPotentialUsers = require('./fetchAllPotentialUsers');
 
 // Now you can use the fetchAllPotentialUsers function in your code
 
-
-// Define the timeout duration
-const TIMEOUT_DURATION = 10000; // 10 seconds
 
 // Utility function for sending error responses.
 

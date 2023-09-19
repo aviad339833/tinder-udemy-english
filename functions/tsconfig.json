@@ -15,4 +15,8 @@
     "*.js", 
     // Add other patterns as necessary
   ],
+  "exclude": [
+    ".eslintrc.js",
+    // any other files or folders you want to exclude
+],
 }
