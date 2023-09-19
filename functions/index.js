@@ -1,8 +1,8 @@
 // Import required modules
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const express = require("express");
-const cors = require("cors");
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const express = require('express');
+const cors = require('cors');
 
 // Initialize Firebase admin
 admin.initializeApp();
@@ -19,10 +19,10 @@ const {
     sendSuccessResponse,
     log,
     documentExists,
-} = require("./utils");
-const deleteAllUserSubcollections = require("./deleteAllUserSubcollections");
-const { handleUserAction } = require("./userActions");
-const fetchAllPotentialUsers = require("./fetchAllPotentialUsers");
+} = require('./utils');
+const deleteAllUserSubcollections = require('./deleteAllUserSubcollections');
+const { handleUserAction } = require('./userActions');
+const fetchAllPotentialUsers = require('./fetchAllPotentialUsers');
 
 // Now you can use the fetchAllPotentialUsers function in your code
 
@@ -32,16 +32,16 @@ const TIMEOUT_DURATION = 10000; // 10 seconds
 
 // Utility function for sending error responses.
 
-app.get("/", async (req, res) => {
+app.get('/', async (req, res) => {
     const requestType = req.query.type;
 
     try {
         switch (requestType) {
-            case "fetchAllPotentialUsers":
+            case 'fetchAllPotentialUsers':
                 await fetchAllPotentialUsers(req, res, firestore, admin);
                 break;
 
-            case "fetchLikedUsers":
+            case 'fetchLikedUsers':
                 await fetchLikedUsers(req, res, firestore);
                 break;
 
@@ -49,25 +49,25 @@ app.get("/", async (req, res) => {
                 sendErrorResponse(res, 400, `Invalid request type: ${requestType}`);
         }
     } catch (error) {
-        log("Error handling request:", error);
+        log('Error handling request:', error);
         sendErrorResponse(res, 500, error.message);
     }
 });
 
-app.post("/userActions", async (req, res) => {
+app.post('/userActions', async (req, res) => {
     try {
         await handleUserAction(req, res, firestore);
     } catch (error) {
-        log("Error handling user action:", error);
+        log('Error handling user action:', error);
         sendErrorResponse(res, 500, error.message);
     }
 });
 
-app.delete("/deleteAllUserSubcollections", async (req, res) => {
+app.delete('/deleteAllUserSubcollections', async (req, res) => {
     try {
         await deleteAllUserSubcollections(req, res, firestore);
     } catch (error) {
-        log("Error handling deleteAllUserSubcollections:", error);
+        log('Error handling deleteAllUserSubcollections:', error);
         sendErrorResponse(res, 500, error.message);
     }
 });

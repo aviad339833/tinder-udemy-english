@@ -1,5 +1,5 @@
-const { sendErrorResponse, sendSuccessResponse, log } = require("./utils");
-const { getUserIdsFromSubCollection, getUsersByIDs } = require("./fetchUtils");
+const { sendErrorResponse, sendSuccessResponse, log } = require('./utils');
+const { getUserIdsFromSubCollection, getUsersByIDs } = require('./fetchUtils');
 
 module.exports = async function (req, res, firestore) {
     try {
@@ -12,18 +12,18 @@ module.exports = async function (req, res, firestore) {
         const startTime = new Date();
         const likedUserIDs = await getUserIdsFromSubCollection(
             firestore
-                .collection("users")
+                .collection('users')
                 .doc(userId)
-                .collection("usersThatILike")
+                .collection('usersThatILike')
         );
 
         // Check if the likedUserIDs are not in the "matches" sub-collection
         const notInMatches = likedUserIDs.filter(async (userId) => {
             try {
                 const snapshot = await firestore
-                    .collection("users")
+                    .collection('users')
                     .doc(userId)
-                    .collection("matches")
+                    .collection('matches')
                     .get();
 
                 return snapshot.empty; // Returns true if the collection is empty (not in matches)
@@ -39,14 +39,15 @@ module.exports = async function (req, res, firestore) {
         const endTime = new Date();
         const fetchDuration = (endTime - startTime) / 1000; // Duration in seconds
 
-        log(
-            `[INFO] Fetch completed in ${fetchDuration} seconds. Found ${likedUsers.length} user documents not in 'matches'.`
-        );
+        // Breaking the long line into multiple lines to satisfy the linter.
+        const infoMessage = `[INFO] Fetch completed in ${fetchDuration} seconds.`;
+        const foundMessage = `Found ${likedUsers.length} user documents not in 'matches'.`;
+        log(infoMessage + ' ' + foundMessage);
 
         // Send success response with liked users
         sendSuccessResponse(res, likedUsers);
     } catch (error) {
         log(`[ERROR] Failed to fetch user IDs and their documents not in 'matches' for user: ${userId}. Error:`, error);
-        sendErrorResponse(res, 500, "Error fetching liked user documents.");
+        sendErrorResponse(res, 500, 'Error fetching liked user documents.');
     }
 };

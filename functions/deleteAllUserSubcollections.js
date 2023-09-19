@@ -1,17 +1,17 @@
-const { sendErrorResponse, sendSuccessResponse, log } = require("./utils");
+const { sendErrorResponse, sendSuccessResponse, log } = require('./utils');
 
 module.exports = async function (req, res, firestore) {
     try {
         const deletePromises = [];
 
-        const chatsRef = firestore.collection("chats");
+        const chatsRef = firestore.collection('chats');
         deletePromises.push(deleteCollection(chatsRef));
 
-        const usersSnapshot = await firestore.collection("users").get();
+        const usersSnapshot = await firestore.collection('users').get();
 
         usersSnapshot.docs.forEach(async (doc) => {
-            if (!doc.id || typeof doc.id !== "string") {
-                log("Invalid user ID:", doc.id);
+            if (!doc.id || typeof doc.id !== 'string') {
+                log('Invalid user ID:', doc.id);
                 return;
             }
 
@@ -27,7 +27,7 @@ module.exports = async function (req, res, firestore) {
                 });
             }
 
-            const userRef = firestore.collection("users").doc(userId);
+            const userRef = firestore.collection('users').doc(userId);
             deletePromises.push(
                 userRef.update({ chats: admin.firestore.FieldValue.delete() })
                 .catch((error) => {
@@ -35,10 +35,10 @@ module.exports = async function (req, res, firestore) {
                 })
             );
 
-            ["usersThatILike", "iDislikeThem", "matches", "usersThatLikedMe"].forEach(
+            ['usersThatILike', 'iDislikeThem', 'matches', 'usersThatLikedMe'].forEach(
                 (subCollectionName) => {
                     const subCollectionRef = firestore
-                        .collection("users")
+                        .collection('users')
                         .doc(userId)
                         .collection(subCollectionName);
 
@@ -52,10 +52,10 @@ module.exports = async function (req, res, firestore) {
         await Promise.all(deletePromises);
         sendSuccessResponse(
             res,
-            "Successfully deleted the chats collection, user chats field, and subcollections for all users"
+            'Successfully deleted the chats collection, user chats field, and subcollections for all users'
         );
     } catch (error) {
-        log("Error deleting collections and chat fields:", error);
+        log('Error deleting collections and chat fields:', error);
         sendErrorResponse(res, 500, error.message);
     }
 };

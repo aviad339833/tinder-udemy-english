@@ -1,26 +1,25 @@
-// fetchUtils.js
-const admin = require("firebase-admin");
+const admin = require('firebase-admin');
 
 async function fetchUserIdsInBatches(collectionRef) {
     const userIDs = [];
     let query = collectionRef.limit(10); // Fetch in batches of 10
 
-    while (true) {
-        try {
-            const snapshot = await query.get();
-            if (snapshot.empty) break;
+    let hasMoreData = true;
 
-            snapshot.forEach((doc) => {
-                userIDs.push(doc.id);
-            });
-
-            // Fetch the next batch
-            const lastVisible = snapshot.docs[snapshot.docs.length - 1];
-            query = collectionRef.startAfter(lastVisible).limit(10);
-        } catch (error) {
-            console.error("[ERROR] Error fetching user IDs in batches:", error);
-            throw error; // Re-throwing so it's caught in your main function's catch block
+    while (hasMoreData) {
+        const snapshot = await query.get();
+        if (snapshot.empty) {
+            hasMoreData = false;
+            continue;
         }
+
+        snapshot.forEach((doc) => {
+            userIDs.push(doc.id);
+        });
+
+        // Fetch the next batch
+        const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+        query = collectionRef.startAfter(lastVisible).limit(10);
     }
 
     return userIDs;
@@ -36,7 +35,7 @@ async function getUserIdsFromSubCollection(subCollection) {
             userIds.push(doc.id);
         });
     } catch (error) {
-        console.error("[ERROR] Error fetching user IDs from sub-collection:", error);
+        console.error('[ERROR] Error fetching user IDs from sub-collection:', error);
         throw error; // Re-throwing so it's caught in your main function's catch block
     }
 
@@ -48,7 +47,7 @@ async function getUsersByIDs(userIDs) {
 
     for (const id of userIDs) {
         try {
-            const userDoc = await admin.firestore().collection("users").doc(id).get();
+            const userDoc = await admin.firestore().collection('users').doc(id).get();
             if (userDoc.exists) {
                 users.push(userDoc.data());
             } else {

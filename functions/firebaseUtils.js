@@ -1,5 +1,5 @@
 // firebaseUtils.js
-const admin = require("firebase-admin");
+const admin = require('firebase-admin');
 
 async function documentExists(collectionName, docId) {
     try {
