@@ -1,6 +1,11 @@
-const { sendErrorResponse, sendSuccessResponse, log } = require('./utils');
+import * as functions from 'firebase-functions';
+import * as express from 'express';
 
-module.exports = async function (req, res) { // Removed unused parameters
+
+const app = express();
+app.use(express.json());
+
+export const yourFunctionName = functions.https.onRequest(async (req, res) => {
     try {
         const userId = req.query.userId;
         const requestType = req.query.type;
@@ -18,7 +23,7 @@ module.exports = async function (req, res) { // Removed unused parameters
 
         switch (requestType) {
             case 'fetchAllPotentialUsers': {
-                let timeout;
+                let timeout: NodeJS.Timeout | undefined;
                 try {
                     log('Fetching all potential users...');
                     const TIMEOUT_DURATION = 30000;
@@ -26,13 +31,17 @@ module.exports = async function (req, res) { // Removed unused parameters
                         sendErrorResponse(res, 500, 'Request timed out.');
                     }, TIMEOUT_DURATION);
 
+                    // Simulate fetching results (replace with your actual logic)
+                    const results:any = []; // Replace with your actual results
 
                     clearTimeout(timeout);
                     sendSuccessResponse(res, results);
                 } catch (error) {
-                    clearTimeout(timeout);
+                    if (timeout) {
+                        clearTimeout(timeout);
+                    }
                     log('Error occurred while fetching potential users:', error);
-                    sendErrorResponse(res, 500, `Error occurred: ${error.message}`);
+                    sendErrorResponse(res, 500, `Error occurred: ${error}`);
                 }
                 break;
             }
@@ -40,11 +49,11 @@ module.exports = async function (req, res) { // Removed unused parameters
             default:
                 log('Invalid request type:', requestType);
                 sendErrorResponse(res, 400,
-                  `Invalid request type: ${requestType}`
+                    `Invalid request type: ${requestType}`
                 );
         }
     } catch (error) {
         log('Error occurred:', error);
-        sendErrorResponse(res, 500, `Error occurred: ${error.message}`);
+        sendErrorResponse(res, 500, `Error occurred: ${error}`);
     }
-};
+});

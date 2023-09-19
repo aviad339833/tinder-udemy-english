@@ -1,8 +1,10 @@
-// Import required modules
+import { fetchLikedUsers } from "../fetchLikedUsers";
+
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
+
 
 // Initialize Firebase admin
 admin.initializeApp();
@@ -27,8 +29,10 @@ const fetchAllPotentialUsers = require('./fetchAllPotentialUsers');
 
 
 // Utility function for sending error responses.
+import { Request, Response } from 'express';
 
-app.get('/', async (req, res) => {
+
+app.get('/', async (req: Request, res: Response) => {
     const requestType = req.query.type;
 
     try {
@@ -46,26 +50,27 @@ app.get('/', async (req, res) => {
         }
     } catch (error) {
         log('Error handling request:', error);
-        sendErrorResponse(res, 500, error.message);
+        sendErrorResponse(res, 500, error);
     }
 });
 
-app.post('/userActions', async (req, res) => {
+app.post('/userActions', async (req: Request, res: Response)=> {
     try {
         await handleUserAction(req, res, firestore);
     } catch (error) {
         log('Error handling user action:', error);
-        sendErrorResponse(res, 500, error.message);
+        sendErrorResponse(res, 500, error);
     }
 });
 
-app.delete('/deleteAllUserSubcollections', async (req, res) => {
+app.delete('/deleteAllUserSubcollections', async (req: Request, res: Response) => {
     try {
         await deleteAllUserSubcollections(req, res, firestore);
     } catch (error) {
         log('Error handling deleteAllUserSubcollections:', error);
-        sendErrorResponse(res, 500, error.message);
+        sendErrorResponse(res, 500, error);
     }
 });
 
 exports.api = functions.https.onRequest(app);
+

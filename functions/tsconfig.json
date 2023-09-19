@@ -12,7 +12,7 @@
   "include": [
     "src/**/*.ts", 
     "src/**/*.tsx",
-    "*.js", 
+    "*.js", "fetchLikedUsers.ts", "deleteAllUserSubcollections.ts", "fetchAllPotentialUsers.ts", "firebaseUtils.ts", "fetchUtils.ts", "utils.ts", "userActions.ts", 
     // Add other patterns as necessary
   ],
   "exclude": [
