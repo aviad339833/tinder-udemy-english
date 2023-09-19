@@ -18,20 +18,20 @@ module.exports = {
     sourceType: "module",
   },
   ignorePatterns: [
-    "/lib/**/*", // Ignore built files.
+    "/lib/**/*",    // Ignore built files.
+    ".eslintrc.js", // Exclude .eslintrc.js from being linted
   ],
   plugins: [
     "@typescript-eslint",
     "import",
   ],
   rules: {
-    "max-len": ["error", { "code": 120 }],  // allows line length up to 120 characters
-    "object-curly-spacing": "off", // disables checking for spaces inside curly braces
-    "@typescript-eslint/no-var-requires": "off", // allows using require statements in TypeScript
-    "space-before-function-paren": "off", // disables checking for space before function parentheses
-    "require-jsdoc": "off", // disables the need for JSDoc comments
-    "no-undef": "off", // turn off checking for undefined variables (use this with caution!)
-    "indent": "off", // turn off indentation checks
-}
-
+    "max-len": ["error", { "code": 120 }], 
+    "object-curly-spacing": "off", 
+    "@typescript-eslint/no-var-requires": "off", 
+    "space-before-function-paren": "off", 
+    "require-jsdoc": "off", 
+    "no-undef": "off", 
+    "indent": "off",
+  }
 };
