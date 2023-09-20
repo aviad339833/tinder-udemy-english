@@ -1,5 +1,3 @@
-// userHandlers.ts
-
 import * as admin from 'firebase-admin';
 
 const firestore = admin.firestore();
@@ -39,12 +37,28 @@ export const fetchAllUsers = async (
     ...new Set([...usersILike, ...usersIDontLike, excludeUserId]),
   ];
 
+  // Fetch gender interest of the current user
+  const currentUserDoc = await firestore
+    .collection('users')
+    .doc(excludeUserId)
+    .get();
+  const currentUserData = currentUserDoc.data();
+
+  if (!currentUserData) {
+    throw new Error('User not found');
+  }
+
+  const userInterestInGender = currentUserData.userInterestInGender;
+
   const usersCollection = firestore.collection('users');
   const snapshot = await usersCollection.get();
 
   const users: admin.firestore.DocumentData[] = [];
   snapshot.forEach((doc) => {
-    if (!excludedUsers.includes(doc.id)) {
+    if (
+      !excludedUsers.includes(doc.id) &&
+      doc.data().gender === userInterestInGender
+    ) {
       users.push({ id: doc.id, ...doc.data() });
     } else {
       console.log(`Found and excluded user with ID: ${doc.id}`);
