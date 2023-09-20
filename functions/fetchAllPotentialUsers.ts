@@ -10,10 +10,10 @@ export const yourFunctionName = functions.https.onRequest(async (req, res) => {
         const userId = req.query.userId;
         const requestType = req.query.type;
 
-        log('Received userId:', userId);
+       console.log('Received userId:', userId);
 
         if (!userId || typeof userId !== 'string' || userId.length !== 28) {
-            log('Invalid or missing userId received:', userId);
+           console.log('Invalid or missing userId received:', userId);
             return sendErrorResponse(
                 res,
                 400,
@@ -25,7 +25,7 @@ export const yourFunctionName = functions.https.onRequest(async (req, res) => {
             case 'fetchAllPotentialUsers': {
                 let timeout: NodeJS.Timeout | undefined;
                 try {
-                    log('Fetching all potential users...');
+                   console.log('Fetching all potential users...');
                     const TIMEOUT_DURATION = 30000;
                     timeout = setTimeout(() => {
                         sendErrorResponse(res, 500, 'Request timed out.');
@@ -40,20 +40,20 @@ export const yourFunctionName = functions.https.onRequest(async (req, res) => {
                     if (timeout) {
                         clearTimeout(timeout);
                     }
-                    log('Error occurred while fetching potential users:', error);
+                   console.log('Error occurred while fetching potential users:', error);
                     sendErrorResponse(res, 500, `Error occurred: ${error}`);
                 }
                 break;
             }
 
             default:
-                log('Invalid request type:', requestType);
+               console.log('Invalid request type:', requestType);
                 sendErrorResponse(res, 400,
                     `Invalid request type: ${requestType}`
                 );
         }
     } catch (error) {
-        log('Error occurred:', error);
+       console.log('Error occurred:', error);
         sendErrorResponse(res, 500, `Error occurred: ${error}`);
     }
 });

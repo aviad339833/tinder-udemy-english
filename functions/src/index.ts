@@ -45,7 +45,7 @@ app.get('/', async (req: Request, res: Response) => {
                 sendErrorResponse(res, 400, `Invalid request type: ${requestType}`);
         }
     } catch (error) {
-        log('Error handling request:', error);
+       console.log('Error handling request:', error);
         sendErrorResponse(res, 500, error);
     }
 });
@@ -54,7 +54,7 @@ app.post('/userActions', async (req: Request, res: Response) => {
     try {
         await handleUserAction(req, res, firestore);
     } catch (error) {
-        log('Error handling user action:', error);
+       console.log('Error handling user action:', error);
         sendErrorResponse(res, 500, error);
     }
 });
@@ -63,7 +63,7 @@ app.delete('/deleteAllUserSubcollections', async (req: Request, res: Response) =
     try {
         await deleteAllUserSubcollections(req, res, firestore);
     } catch (error) {
-        log('Error handling deleteAllUserSubcollections:', error);
+       console.log('Error handling deleteAllUserSubcollections:', error);
         sendErrorResponse(res, 500, error);
     }
 });

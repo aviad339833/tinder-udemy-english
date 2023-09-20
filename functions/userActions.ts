@@ -1,55 +1,66 @@
-const { sendErrorResponse, sendSuccessResponse, log, documentExists } = require('./utils');
+import { Firestore } from '@google-cloud/firestore';
+import * as admin from 'firebase-admin';
+import { Request, Response } from 'express';
+import { sendErrorResponse, sendSuccessResponse } from './utils';
 
-module.exports.handleUserAction = async function (req, res, firestore) {
+export async function documentExists(collectionName: string, docId: string, firestore: Firestore): Promise<boolean> {
+    try {
+        const docRef = firestore.collection(collectionName).doc(docId);
+        const doc = await docRef.get();
+        return doc.exists;
+    } catch (error) {
+        console.error(`[ERROR] Error checking if document exists in ${collectionName} with ID ${docId}:`, error);
+        throw error; // Re-throwing so it's caught in your main function's catch block
+    }
+}
+
+export async function handleUserAction(req: Request, res: Response, firestore: Firestore): Promise<void> {
     try {
         const { type, myId, idOfTheOtherPerson } = req.body;
 
-        log('Received request:', { type, myId, idOfTheOtherPerson });
+        console.log('Received request:', { type, myId, idOfTheOtherPerson });
 
         switch (type) {
             case 'personThatILike':
                 await handleLikeAction(myId, idOfTheOtherPerson, firestore);
-                log('Transaction completed successfully!');
-                sendSuccessResponse(res, 'Operation completed successfully!');
+                console.log('Transaction completed successfully!');
+                sendSuccessResponse(res, 200, 'Operation completed successfully!');
                 break;
-
-            // Add more cases as you expand the API functionality
-
             default:
-                log('Invalid request type:', type);
+                console.log('Invalid request type:', type);
                 sendErrorResponse(res, 400, 'Invalid request type.');
         }
     } catch (error) {
-        log('Transaction Error:', error);
+        console.log('Transaction Error:', error);
         sendErrorResponse(res, 500, 'An error occurred.');
     }
-};
+}
 
-async function handleLikeAction(myId, idOfTheOtherPerson, firestore) {
+async function handleLikeAction(myId: string, idOfTheOtherPerson: string, firestore: Firestore): Promise<void> {
     try {
         await firestore.runTransaction(async (transaction) => {
-            log('Initiating transaction...');
+            console.log('Initiating transaction...');
 
             const otherPersonRef = firestore.collection('users').doc(idOfTheOtherPerson);
             const myRef = firestore.collection('users').doc(myId);
 
-            log('Fetching other person\'s data...');
+            console.log('Fetching other person\'s data...');
             const otherPersonData = await transaction.get(otherPersonRef);
 
-            if (!documentExists(otherPersonData)) {
-                log('Other person does not exist. Exiting transaction.');
+            if (!otherPersonData.exists) {
+                console.log('Other person does not exist. Exiting transaction.');
                 return; // Exit the transaction
             }
 
-            log('Checking if the other person has liked me...');
+            console.log('Checking if the other person has liked me...');
             const theirLikes = await transaction.get(
                 otherPersonRef.collection('usersThatILike').doc(myId)
             );
 
             const currentTimeStamp = admin.firestore.FieldValue.serverTimestamp();
 
-            if (documentExists(theirLikes)) {
-                log(
+            if (theirLikes.exists) {
+                console.log(
                     'Mutual like situation detected between',
                     myId,
                     'and',
@@ -68,22 +79,22 @@ async function handleLikeAction(myId, idOfTheOtherPerson, firestore) {
                 });
 
                 const chatRoomId = firestore.collection('chats').doc().id;
-                log('Generating chat room with ID:', chatRoomId);
+                console.log('Generating chat room with ID:', chatRoomId);
 
                 transaction.set(firestore.collection('chats').doc(chatRoomId), {
                     users: [myId, idOfTheOtherPerson],
                     timestamp: currentTimeStamp,
                 });
-                log('Saved chat room to DB.');
+                console.log('Saved chat room to DB.');
 
-                log('Updating user data with chat room ID...');
+                console.log('Updating user data with chat room ID...');
                 transaction.update(myRef, {
                     chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
                 });
                 transaction.update(otherPersonRef, {
                     chats: admin.firestore.FieldValue.arrayUnion(chatRoomId),
                 });
-                log('Updated user data in DB.');
+                console.log('Updated user data in DB.');
             }
 
             transaction.set(
@@ -94,14 +105,14 @@ async function handleLikeAction(myId, idOfTheOtherPerson, firestore) {
                     userRef: otherPersonRef,
                 }
             );
-            log('Like added to DB.');
+            console.log('Like added to DB.');
 
             transaction.set(otherPersonRef.collection('usersThatLikedMe').doc(myId), {
                 userId: myId,
                 timestamp: currentTimeStamp,
                 userRef: myRef,
             });
-            log('Added me to other person\'s \'usersThatLikedMe\' subcollection.');
+            console.log('Added me to other person\'s \'usersThatLikedMe\' subcollection.');
         });
     } catch (error) {
         console.error(`[ERROR] Error handling like action for users ${myId} and ${idOfTheOtherPerson}:`, error);
