@@ -1,19 +1,56 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+import { initializeApp } from 'firebase-admin/app';
 
-import { onRequest } from 'firebase-functions/v2/https';
-import * as logger from 'firebase-functions/logger';
+initializeApp();
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+import * as functions from 'firebase-functions';
+import { fetchAllUsers } from './userHandlers';
 
-export const helloWorld = onRequest((request, response) => {
-  logger.info('Hello logs!', { structuredData: true });
-  response.send('Hello from Firebase!');
-});
+export const getRequestHandler = functions.https.onRequest(
+  async (request, response) => {
+    const type: string = request.query.type as string;
+    const userId: string = request.query.userId as string;
+
+    switch (type) {
+      case 'getAllMatchedUsers':
+        try {
+          const users = await fetchAllUsers(userId);
+          response.send(users);
+        } catch (error) {
+          response.status(500).send('Error fetching users: ' + error);
+        }
+        break;
+      // ... add more cases as needed
+
+      default:
+        response.send('Unknown GET action');
+        break;
+    }
+  }
+);
+
+export const postRequestHandler = functions.https.onRequest(
+  async (request, response) => {
+    const body = request.body;
+    const type: string = body.type;
+
+    switch (type) {
+      case 'action1':
+        // Handle action1 for POST request
+        // ...
+        response.send('Handled action1 for POST');
+        break;
+
+      case 'action2':
+        // Handle action2 for POST request
+        // ...
+        response.send('Handled action2 for POST');
+        break;
+
+      // ... add more cases as needed
+
+      default:
+        response.send('Unknown POST action');
+        break;
+    }
+  }
+);

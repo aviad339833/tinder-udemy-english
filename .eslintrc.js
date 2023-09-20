@@ -39,7 +39,7 @@ module.exports = {
       files: ['**/*.js'], // Include all JavaScript files
       rules: {
         'indent': 'off', // Turn off the 'indent' rule for JavaScript files
-        'object-curly-spacing': 'off', // Turn off 'object-curly-spacing' rule for JavaScript files
+        'object-curly-spacing': 'off',
       },
     },
   ],
