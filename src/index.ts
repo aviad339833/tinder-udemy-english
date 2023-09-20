@@ -40,14 +40,6 @@ export const postRequestHandler = functions.https.onRequest(
         response.send('Handled action1 for POST');
         break;
 
-      case 'action2':
-        // Handle action2 for POST request
-        // ...
-        response.send('Handled action2 for POST');
-        break;
-
-      // ... add more cases as needed
-
       default:
         response.send('Unknown POST action');
         break;

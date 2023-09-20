@@ -27,6 +27,7 @@ module.exports = {
     'import/no-unresolved': 0,
     'indent': 'off',
     'object-curly-spacing': 'off',
+    'max-len': ['error', { 'code': 120 }], // Setting max length to 120
   },
   overrides: [
     {
