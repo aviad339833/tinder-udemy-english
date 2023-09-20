@@ -14,6 +14,7 @@ module.exports = {
   ],
   parser: '@typescript-eslint/parser',
   parserOptions: {
+    tsconfigRootDir: __dirname,
     project: ['tsconfig.json', 'tsconfig.dev.json'],
     sourceType: 'module',
   },
@@ -32,6 +33,13 @@ module.exports = {
       files: ['.eslintrc.js'],
       rules: {
         'prettier/prettier': 'off', // Turn off Prettier for this file
+      },
+    },
+    {
+      files: ['**/*.js'], // Include all JavaScript files
+      rules: {
+        'indent': 'off', // Turn off the 'indent' rule for JavaScript files
+        'object-curly-spacing': 'off', // Turn off 'object-curly-spacing' rule for JavaScript files
       },
     },
   ],
