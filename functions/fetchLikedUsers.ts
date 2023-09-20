@@ -1,4 +1,3 @@
-
 import { Request, Response } from 'express';
 import { Firestore } from '@google-cloud/firestore';
 import { getUserIdsFromSubCollection, getUsersByIDs } from './fetchUtils';
@@ -18,23 +17,21 @@ export async function fetchLikedUsers(req: Request, res: Response, firestore: Fi
                 .collection('usersThatILike')
         );
 
-        const notInMatches: string[] = (await Promise.all(likedUserIDs.map(async (userId: string) => {
+        const notInMatches: string[] = (await Promise.all(likedUserIDs.map(async (userId) => {
             try {
                 const snapshot = await firestore
                     .collection('users')
                     .doc(userId)
                     .collection('matches')
                     .get();
-        
                 return snapshot.empty ? userId : null;
             } catch (error) {
                 console.log(`[ERROR] Error checking if user ${userId} is in 'matches'. Error:`, error);
                 return null;
             }
-        }))).filter(id => id !== null) as string[];
-        
+        }))).filter((id) => id !== null) as string[];
 
-        const filteredMatches = notInMatches.filter(id => id !== null) as string[];
+        const filteredMatches = notInMatches.filter((id) => id !== null) as string[];
 
         const likedUsers = await getUsersByIDs(filteredMatches);
 

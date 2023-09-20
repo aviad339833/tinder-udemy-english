@@ -12,20 +12,18 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-// Define the log function
-function log(...args: any[]) {
-    // Replace this with your actual logging implementation
-    console.log(...args);
-}
 
-async function deleteCollection(collectionRef: FirebaseFirestore.CollectionReference) {
+async function deleteCollection(
+    collectionRef: FirebaseFirestore.CollectionReference
+) {
     const batchSize = 500;
     const query = collectionRef.limit(batchSize);
-
-    while (true) {
+    let shouldContinue = true;
+    while (shouldContinue) {
         const snapshot = await query.get();
 
         if (snapshot.size === 0) {
+            shouldContinue = false;
             break;
         }
 
@@ -49,7 +47,7 @@ export const deleteCollections = functions.https.onRequest(async (req, res) => {
 
         usersSnapshot.docs.forEach(async (doc) => {
             if (!doc.id || typeof doc.id !== 'string') {
-                log('Invalid user ID:', doc.id);
+                console.log('Invalid user ID:', doc.id);
                 return;
             }
 
@@ -59,9 +57,14 @@ export const deleteCollections = functions.https.onRequest(async (req, res) => {
             if (userData.chats && Array.isArray(userData.chats)) {
                 userData.chats.forEach((chatId) => {
                     const chatDocumentRef = chatsRef.doc(chatId);
-                    deletePromises.push(chatDocumentRef.delete().catch((error) => {
-                        log(`Error deleting chat document ${chatId} for user ${userId}:`, error);
-                    }) as Promise<void>); // Cast to Promise<void>
+                    deletePromises.push(
+                        chatDocumentRef.delete().catch((error) => {
+                            console.log(
+                                `Error deleting chat document ${chatId} for user ${userId}:`,
+                                error
+                            );
+                        }) as Promise<void>
+                    ); // Cast to Promise<void>
                 });
             }
 
@@ -69,10 +72,11 @@ export const deleteCollections = functions.https.onRequest(async (req, res) => {
 
             // Create a custom promise wrapper
             const updatePromise = new Promise<void>((resolve, reject) => {
-                userRef.update({ chats: admin.firestore.FieldValue.delete() })
+                userRef
+                    .update({ chats: admin.firestore.FieldValue.delete() })
                     .then(() => resolve())
                     .catch((error) => {
-                        log(`Error deleting chats field for user ${userId}:`, error);
+                        console.log(`Error deleting chats field for user ${userId}:`, error);
                         reject(error);
                     });
             });
@@ -87,18 +91,25 @@ export const deleteCollections = functions.https.onRequest(async (req, res) => {
                         .doc(userId)
                         .collection(subCollectionName);
 
-                    deletePromises.push(deleteCollection(subCollectionRef).catch((error) => {
-                        log(`Error deleting subcollection ${subCollectionName} for user ${userId}:`, error);
-                    }));
+                    deletePromises.push(
+                        deleteCollection(subCollectionRef).catch((error) => {
+                            console.log(
+                                `Error deleting subcollection ${subCollectionName} for user ${userId}:`,
+                                error
+                            );
+                        })
+                    );
                 }
             );
         });
 
         await Promise.all(deletePromises);
         // Send a success response
-        res.status(200).send('Successfully deleted the chats collection, user chats field, and subcollections for all users');
+        res
+            .status(200)
+            .send('Successfully deleted the chats collection, user chats field, and subcollections for all users');
     } catch (error) {
-        log('Error deleting collections and chat fields:', error);
+        console.log('Error deleting collections and chat fields:', error);
         // Send an error response
         res.status(500).send(error);
     }

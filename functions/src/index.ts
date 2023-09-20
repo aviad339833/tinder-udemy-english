@@ -1,10 +1,9 @@
-import { fetchLikedUsers } from "../fetchLikedUsers";
+import { fetchLikedUsers } from '../fetchLikedUsers'; // Changed double quotes to single quotes
 
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
-
 
 // Initialize Firebase admin
 admin.initializeApp();
@@ -19,7 +18,6 @@ app.use(express.json());
 const {
     sendErrorResponse,
     log,
-
 } = require('./utils');
 const deleteAllUserSubcollections = require('./deleteAllUserSubcollections');
 const { handleUserAction } = require('./userActions');
@@ -27,10 +25,8 @@ const fetchAllPotentialUsers = require('./fetchAllPotentialUsers');
 
 // Now you can use the fetchAllPotentialUsers function in your code
 
-
 // Utility function for sending error responses.
 import { Request, Response } from 'express';
-
 
 app.get('/', async (req: Request, res: Response) => {
     const requestType = req.query.type;
@@ -54,7 +50,7 @@ app.get('/', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/userActions', async (req: Request, res: Response)=> {
+app.post('/userActions', async (req: Request, res: Response) => {
     try {
         await handleUserAction(req, res, firestore);
     } catch (error) {
@@ -73,4 +69,3 @@ app.delete('/deleteAllUserSubcollections', async (req: Request, res: Response) =
 });
 
 exports.api = functions.https.onRequest(app);
-

@@ -32,7 +32,7 @@ export const yourFunctionName = functions.https.onRequest(async (req, res) => {
                     }, TIMEOUT_DURATION);
 
                     // Simulate fetching results (replace with your actual logic)
-                    const results:any = []; // Replace with your actual results
+                    const results:unknown[] = []; // Replace with your actual results
 
                     clearTimeout(timeout);
                     sendSuccessResponse(res, results);
