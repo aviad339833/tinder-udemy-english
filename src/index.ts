@@ -4,17 +4,17 @@ import { initializeApp } from 'firebase-admin/app';
 initializeApp();
 
 import * as functions from 'firebase-functions';
-import admin from 'firebase-admin';
 import { fetchAllUsers } from './userHandlers';
-
-const firestore = admin.firestore();
+import { handlePersonThatILike } from './userInteractions';
+import { resetAllUsers } from './reseteDb';
 
 const app = express(); // Create an instance of the Express application
 
 interface IRequest {
   type: string;
-  myId?: string;
+  myId: string;
   ThePersonThatILiked?: string;
+  ThePersonThatIDontLiked?: string;
   // Add any other properties as needed
 }
 
@@ -53,23 +53,31 @@ app.post('/', async (request: express.Request, response: express.Response) => {
       }
 
       try {
-        // Use Firestore for handling interactions
-        // For example, you can add data to Firestore here
-        const result = await firestore.collection('interactions').add({
-          myId: body.myId,
-          ThePersonThatILiked: body.ThePersonThatILiked,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        // Call the function to handle the like interaction and get its result
+        const matchResult = await handlePersonThatILike(
+          body.myId,
+          body.ThePersonThatILiked
+        );
 
-        response.send(`Interaction added with ID: ${result.id}`);
+        // Send back the result from the handlePersonThatILike function
+        response.send(matchResult);
       } catch (error) {
-        response.status(500).send(error);
+        response.status(500).send(`Error processing interaction: ${error}`);
       }
       break;
     // ... add more cases as needed
     default:
       response.send('Unknown POST action');
       break;
+  }
+});
+
+app.delete('/reset-all-users', async (request, response) => {
+  try {
+    await resetAllUsers();
+    response.status(200).send('All users have been reset.');
+  } catch (error) {
+    response.status(500).send(`Error resetting all users: ${error}`);
   }
 });
 
