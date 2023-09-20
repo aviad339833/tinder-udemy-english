@@ -5,6 +5,7 @@ initializeApp();
 
 import * as functions from 'firebase-functions';
 import admin from 'firebase-admin';
+import { fetchAllUsers } from './userHandlers';
 
 const firestore = admin.firestore();
 
@@ -24,13 +25,13 @@ interface IQuery {
 
 app.get('/', async (request: express.Request, response: express.Response) => {
   const query = request.query as unknown as IQuery;
+
   switch (query.type) {
     case 'getAllMatchedUsers':
       try {
-        // Use Firestore for fetching users
-        const users = await firestore.collection('users').get();
-        const userData = users.docs.map((doc) => doc.data());
-        response.send(userData);
+        // Use the fetchAllUsers function
+        const users = await fetchAllUsers(query.userId); // Pass the userId as an argument
+        response.send(users);
       } catch (error) {
         response.status(500).send('Error fetching users: ' + error);
       }
