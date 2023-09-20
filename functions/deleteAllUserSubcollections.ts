@@ -2,9 +2,10 @@ import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as express from 'express';
 import * as cors from 'cors';
+import { initializeFirebaseApp } from './firebaseUtils';
 
 // Initialize Firebase admin
-admin.initializeApp();
+initializeFirebaseApp();
 const firestore = admin.firestore();
 
 // Create an Express app

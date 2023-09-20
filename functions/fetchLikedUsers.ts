@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Firestore } from '@google-cloud/firestore';
 import { getUserIdsFromSubCollection, getUsersByIDs } from './fetchUtils';
+import { sendErrorResponse, sendSuccessResponse } from './utils';
 
 export async function fetchLikedUsers(req: Request, res: Response, firestore: Firestore): Promise<void> {
     try {
@@ -42,7 +43,7 @@ export async function fetchLikedUsers(req: Request, res: Response, firestore: Fi
         const foundMessage = `Found ${likedUsers.length} user documents not in 'matches'.`;
         console.log(infoMessage + ' ' + foundMessage);
 
-        sendSuccessResponse(res, likedUsers);
+        sendSuccessResponse(res, 200, likedUsers);
     } catch (error) {
         console.log(`[ERROR] Failed to fetch user IDs and their documents not in 'matches' for user:. Error:`, error);
         sendErrorResponse(res, 500, 'Error fetching liked user documents.');

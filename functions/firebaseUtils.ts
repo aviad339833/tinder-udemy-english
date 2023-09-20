@@ -10,3 +10,9 @@ export async function documentExists(collectionName: string, docId: string): Pro
         throw error; // Re-throwing so it's caught in your main function's catch block
     }
 }
+
+export function initializeFirebaseApp(): void {
+    if (!admin.apps.length) {
+        admin.initializeApp();
+    }
+}

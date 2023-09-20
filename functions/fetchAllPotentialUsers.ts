@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as express from 'express';
+import { sendErrorResponse, sendSuccessResponse } from './utils';
 
 
 const app = express();
@@ -35,7 +36,7 @@ export const yourFunctionName = functions.https.onRequest(async (req, res) => {
                     const results:unknown[] = []; // Replace with your actual results
 
                     clearTimeout(timeout);
-                    sendSuccessResponse(res, results);
+                    sendSuccessResponse(res, 200, results);
                 } catch (error) {
                     if (timeout) {
                         clearTimeout(timeout);
