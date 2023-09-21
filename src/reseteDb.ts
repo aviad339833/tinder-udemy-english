@@ -12,7 +12,7 @@ export const resetUser = async (userId: string): Promise<void> => {
       'usersThatILike',
       'matches',
       'usersThatLikedMe',
-      'usersThatIdontLike',
+      'usersThatIDontLike',
     ];
 
     for (const subcollection of subcollections) {

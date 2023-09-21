@@ -3,41 +3,32 @@ import * as admin from 'firebase-admin';
 const firestore = admin.firestore();
 
 export const fetchAllUsers = async (
-  excludeUserId: string
+  excludeUserId: string,
+  lastUserId?: string
 ): Promise<admin.firestore.DocumentData[]> => {
-  console.log(
-    `Entered getAllMatchedUsers function. Excluding user with ID: ${excludeUserId}`
+  // Step 2.1: If no lastUserId is provided, fetch it from the special document
+  if (!lastUserId) {
+    const lastUserSetting = await firestore
+      .doc('settings/lastFetchedUser')
+      .get();
+    lastUserId = lastUserSetting.data()?.lastUserId;
+  }
+
+  console.log(`Fetching batch for user with ID: ${excludeUserId}`);
+  console.log(`lastUserId: ${lastUserId}`);
+
+  const interactionsCollection = firestore.collection('interactions');
+
+  const likedAndDislikedUsers = await interactionsCollection
+    .where('userId', '==', excludeUserId)
+    .get();
+
+  const excludedUserIds = likedAndDislikedUsers.docs.map((doc) =>
+    doc.get('otherUserId')
   );
 
-  // Fetch users that the current user likes and doesn't like
-  const usersThatILikeSnapshot = await firestore
-    .collection('users')
-    .doc(excludeUserId)
-    .collection('usersThatILike')
-    .get();
+  excludedUserIds.push(excludeUserId); // Add the user themselves to the exclude list
 
-  const usersThatIDontLikeSnapshot = await firestore
-    .collection('users')
-    .doc(excludeUserId)
-    .collection('usersThatIDontLike')
-    .get();
-
-  const usersILike: string[] = [];
-  usersThatILikeSnapshot.forEach((doc) => {
-    usersILike.push(doc.id);
-  });
-
-  const usersIDontLike: string[] = [];
-  usersThatIDontLikeSnapshot.forEach((doc) => {
-    usersIDontLike.push(doc.id);
-  });
-
-  // Combine the two lists and remove duplicates
-  const excludedUsers = [
-    ...new Set([...usersILike, ...usersIDontLike, excludeUserId]),
-  ];
-
-  // Fetch gender interest of the current user
   const currentUserDoc = await firestore
     .collection('users')
     .doc(excludeUserId)
@@ -50,24 +41,43 @@ export const fetchAllUsers = async (
 
   const userInterestInGender = currentUserData.userInterestInGender;
 
-  const usersCollection = firestore.collection('users');
-  const snapshot = await usersCollection.get();
+  const currentTimestamp = new Date();
+
+  const batchSize = 20;
+  let userQuery = firestore
+    .collection('users')
+    .where('gender', '==', userInterestInGender)
+    .where('created_time', '>', currentTimestamp)
+    .orderBy('created_time')
+    .limit(batchSize);
+
+  if (lastUserId) {
+    const lastUserSnapshot = await firestore
+      .collection('users')
+      .doc(lastUserId)
+      .get();
+    userQuery = userQuery.startAfter(lastUserSnapshot);
+  }
+
+  const usersSnapshot = await userQuery.get();
 
   const users: admin.firestore.DocumentData[] = [];
-  snapshot.forEach((doc) => {
-    if (
-      !excludedUsers.includes(doc.id) &&
-      doc.data().gender === userInterestInGender
-    ) {
+  usersSnapshot.forEach((doc) => {
+    if (!excludedUserIds.includes(doc.id)) {
       users.push({ id: doc.id, ...doc.data() });
-    } else {
-      console.log(`Found and excluded user with ID: ${doc.id}`);
     }
   });
 
   console.log(
     `Fetched ${users.length} users excluding user with ID: ${excludeUserId} and other excluded users.`
   );
+
+  // Step 2.2: Update the lastUserId in the special document
+  if (users.length > 0) {
+    await firestore.doc('settings/lastFetchedUser').set({
+      lastUserId: users[users.length - 1].id,
+    });
+  }
 
   return users;
 };
