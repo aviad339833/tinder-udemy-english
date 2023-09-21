@@ -94,29 +94,77 @@ export const handlePersonThatIDontLike = async (
   thePersonThatIDontLiked: string
 ): Promise<string> => {
   try {
-    console.log(
-      `Handling not like request from user with ID: ${myId} to user with ID: ${thePersonThatIDontLiked}`
-    );
+    const interactionsCollection = firestore.collection('interactions');
 
-    // Add the user to the 'usersThatIDontLike' sub-collection
-    await firestore
-      .collection('users')
-      .doc(myId)
-      .collection('usersThatIDontLike')
-      .doc(thePersonThatIDontLiked)
-      .set({
+    console.log('Fetching existing interaction...'); // Debugging
+
+    // Check if there's an existing interaction
+    const existingInteraction = await interactionsCollection
+      .where('userId', '==', myId)
+      .where('otherUserId', '==', thePersonThatIDontLiked)
+      .limit(1)
+      .get();
+
+    if (!existingInteraction.empty) {
+      console.log('Interaction found.'); // Debugging
+
+      // If an interaction already exists, update or check its type
+      const interactionDoc = existingInteraction.docs[0];
+      if (interactionDoc.get('interactionType') === 'dislike') {
+        console.log('User has already disliked.'); // Debugging
+        return `User with ID: ${myId} already disliked user with ID: ${thePersonThatIDontLiked}`;
+      }
+
+      console.log('Updating interaction to dislike'); // Debugging
+      await interactionDoc.ref.update({ interactionType: 'dislike' });
+
+      console.log('Checking for existing chat between users...'); // Debugging
+
+      // Handle chat implications based on the "unmatch" or "dislike" action
+      const chatsCollection = firestore.collection('chats');
+      const chat = await chatsCollection
+        .where('users', 'array-contains', myId)
+        .where('users', 'array-contains', thePersonThatIDontLiked)
+        .limit(1)
+        .get();
+
+      if (!chat.empty) {
+        console.log('Chat found. Deleting...'); // Debugging
+        await chat.docs[0].ref.delete();
+
+        console.log('Removing chat ID from users profiles...'); // Debugging
+
+        await firestore
+          .collection('users')
+          .doc(myId)
+          .update({
+            chats: admin.firestore.FieldValue.arrayRemove(chat.docs[0].id),
+          });
+        await firestore
+          .collection('users')
+          .doc(thePersonThatIDontLiked)
+          .update({
+            chats: admin.firestore.FieldValue.arrayRemove(chat.docs[0].id),
+          });
+      } else {
+        console.log('No chat found between users.'); // Debugging
+      }
+    } else {
+      console.log('No existing interaction, creating a new one'); // Debugging
+
+      const newDocRef = await interactionsCollection.add({
+        userId: myId,
+        otherUserId: thePersonThatIDontLiked,
+        interactionType: 'dislike',
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        userId: thePersonThatIDontLiked,
-        userRef: `/users/${thePersonThatIDontLiked}`,
       });
 
-    console.log(
-      `User with ID: ${myId} doesn't like user with ID: ${thePersonThatIDontLiked}. Added to 'usersThatIDontLike'.`
-    );
-    // eslint-disable-next-line max-len
-    return `User with ID: ${myId} doesn't like user with ID: ${thePersonThatIDontLiked}. Added to 'usersThatIDontLike'.`;
+      console.log('New interaction added with doc ID:', newDocRef.id); // Debugging
+    }
+
+    return `User with ID: ${myId} doesn't like user with ID: ${thePersonThatIDontLiked} anymore.`;
   } catch (error) {
-    console.error(`Error in not liking user: ${error}`);
-    throw new Error(`Error in not liking user: ${error}`);
+    console.error(`Error in unmatching/disliking user: ${error}`);
+    throw new Error(`Error in unmatching/disliking user: ${error}`);
   }
 };

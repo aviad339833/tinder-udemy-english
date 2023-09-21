@@ -75,7 +75,7 @@ app.post('/', async (request: express.Request, response: express.Response) => {
       }
       break;
 
-    case 'personThatIDontLike':
+    case 'personThatIDislike':
       if (!body.myId || !body.thePersonThatIDontLiked) {
         const errorMessage = 'Required parameters are missing for not liking.';
         console.error(errorMessage);
