@@ -1,10 +1,7 @@
 import express from 'express';
 import { initializeApp } from 'firebase-admin/app';
-import * as admin from 'firebase-admin';
 
 initializeApp();
-
-const firestore = admin.firestore();
 
 import * as functions from 'firebase-functions';
 import { fetchAllUsers } from './userHandlers';
@@ -15,20 +12,6 @@ import {
 import { resetAllUsers } from './reseteDb';
 
 const app = express(); // Create an instance of the Express application
-
-// Initialize the settings/lastFetchedUser document with an empty lastUserId
-(async () => {
-  const settingsRef = firestore.doc('settings/lastFetchedUser');
-  const docSnapshot = await settingsRef.get();
-
-  // Check if the document doesn't exist yet
-  if (!docSnapshot.exists) {
-    await settingsRef.set({
-      lastUserId: '',
-    });
-    console.log('Initialized the settings/lastFetchedUser document.');
-  }
-})();
 
 interface IRequest {
   type: string;
