@@ -12,35 +12,35 @@ export const handlePersonThatILike = async (
     );
 
     const interactionsCollection = firestore.collection('interactions');
+    const myRef = firestore.collection('users').doc(myId); // Reference to the current user's document
+    const theirRef = firestore.collection('users').doc(thePersonThatILiked); // Reference to the other user's document
 
-    // Check if a "like" interaction already exists
+    // Check if a "like" interaction already exists using references
     const existingInteraction = await interactionsCollection
-      .where('userId', '==', myId)
-      .where('otherUserId', '==', thePersonThatILiked)
+      .where('userRef', '==', myRef)
+      .where('otherUserRef', '==', theirRef)
       .limit(1)
       .get();
 
     if (!existingInteraction.empty) {
-      // If an interaction already exists, update or check its type
       const interactionDoc = existingInteraction.docs[0];
       if (interactionDoc.get('interactionType') === 'like') {
         return `User with ID: ${myId} already liked user with ID: ${thePersonThatILiked}`;
       }
       await interactionDoc.ref.update({ interactionType: 'like' });
     } else {
-      // Create a new "like" interaction
       await interactionsCollection.add({
-        userId: myId,
-        otherUserId: thePersonThatILiked,
+        userRef: myRef, // Storing user references instead of IDs
+        otherUserRef: theirRef,
         interactionType: 'like',
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
     }
 
-    // Check mutual like
+    // Check mutual like using references
     const checkMutualLike = await interactionsCollection
-      .where('userId', '==', thePersonThatILiked)
-      .where('otherUserId', '==', myId)
+      .where('userRef', '==', theirRef)
+      .where('otherUserRef', '==', myRef)
       .where('interactionType', '==', 'like')
       .limit(1)
       .get();
@@ -53,7 +53,6 @@ export const handlePersonThatILike = async (
       const chatRef = await firestore.collection('chats').add({
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
         users: [myId, thePersonThatILiked],
-        // Optionally, you can include other initial chat data (e.g., an initial system message, etc.)
       });
 
       // Update the user's documents to include the chat ID in their list of chats
@@ -62,7 +61,6 @@ export const handlePersonThatILike = async (
         .doc(myId)
         .update({
           chats: admin.firestore.FieldValue.arrayUnion(chatRef.id),
-          // Optionally, you can update other user fields if needed
         });
 
       await firestore
@@ -70,7 +68,6 @@ export const handlePersonThatILike = async (
         .doc(thePersonThatILiked)
         .update({
           chats: admin.firestore.FieldValue.arrayUnion(chatRef.id),
-          // Optionally, you can update other user fields if needed
         });
 
       console.log(
