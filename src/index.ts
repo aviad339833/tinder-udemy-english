@@ -10,6 +10,7 @@ import {
   fetchAllMatchesForUser,
   fetchPotentialMatches,
   fetchUsersILike,
+  likeUser,
 } from './userHandlers';
 import { resetAllUsers } from './reseteDb';
 
@@ -30,7 +31,7 @@ interface IQuery {
 
 app.get('/', async (request: express.Request, response: express.Response) => {
   const query = request.query as unknown as IQuery;
-
+  console.log('started query', query);
   switch (query.type) {
     case 'fetchPotentialMatches': {
       const users = await fetchPotentialMatches(query.userId);
@@ -55,7 +56,7 @@ app.get('/', async (request: express.Request, response: express.Response) => {
 
 app.post('/', async (request: express.Request, response: express.Response) => {
   const body: IRequest = request.body;
-
+  console.log('body', body);
   switch (body.type) {
     case 'personThatILike': {
       if (!body.ThePersonThatILiked) {
@@ -63,6 +64,11 @@ app.post('/', async (request: express.Request, response: express.Response) => {
           .status(400)
           .send('ThePersonThatILiked parameter is missing.');
       }
+
+      // Register the "like" action for the current user
+      await likeUser(body.myId, body.ThePersonThatILiked);
+
+      // Now, check for a mutual match
       const matchResult = await checkForMatchAndCreateChat(
         body.myId,
         body.ThePersonThatILiked
@@ -70,6 +76,7 @@ app.post('/', async (request: express.Request, response: express.Response) => {
       response.send(matchResult);
       break;
     }
+
     case 'personThatIDislike': {
       if (!body.thePersonThatIDontLiked) {
         return response
