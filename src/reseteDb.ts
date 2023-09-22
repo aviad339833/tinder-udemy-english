@@ -8,12 +8,7 @@ export const resetUser = async (userId: string): Promise<void> => {
     const userDocRef = firestore.collection('users').doc(userId);
 
     // Define the sub-collections to delete
-    const subcollections = [
-      'usersThatILike',
-      'matches',
-      'usersThatLikedMe',
-      'usersThatIDontLike',
-    ];
+    const subcollections = ['matches', 'interactions'];
 
     for (const subcollection of subcollections) {
       const subCollectionRef = userDocRef.collection(subcollection);
@@ -40,13 +35,6 @@ export const resetAllUsers = async (): Promise<void> => {
     const chatSnapshots = await chatCollectionRef.get();
     for (const chatDoc of chatSnapshots.docs) {
       await chatDoc.ref.delete();
-    }
-
-    // If there's a chat collection, delete the whole chat collection
-    const interactionsCollectionRef = firestore.collection('interactions');
-    const interactionsSnapshots = await interactionsCollectionRef.get();
-    for (const interactionDoc of interactionsSnapshots.docs) {
-      await interactionDoc.ref.delete();
     }
 
     // Retrieve all user documents

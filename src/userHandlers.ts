@@ -226,66 +226,34 @@ export const fetchUsersILike = async (
 
 export const fetchAllMatchesForUser = async (
   userId: string,
-  lastUserTimestamp?: FirebaseFirestore.Timestamp
-): Promise<{
-  matches: string[];
-  lastTimestamp?: FirebaseFirestore.Timestamp;
-}> => {
+  page?: number,
+  pageSize?: number
+): Promise<{ matches: string[] }> => {
+  console.log(`Fetching page ${page} of matches for user with ID: ${userId}`);
+
+  // If 'page' and 'pageSize' are not provided, they will be assigned their default values.
+  page = page ?? 1;
+  pageSize = pageSize ?? 20;
+
+  const matchesCollection = firestore
+    .collection('users')
+    .doc(userId)
+    .collection('matches');
+
+  const matchesSnapshot = await matchesCollection
+    .orderBy('timestamp', 'desc') // Order matches by timestamp, most recent first
+    .offset((page - 1) * pageSize) // Calculate the starting point of this page
+    .limit(pageSize) // Limit the number of matches per page
+    .get();
+
+  const matchIds: string[] = [];
+  matchesSnapshot.forEach((doc) => {
+    matchIds.push(doc.id);
+  });
+
   console.log(
-    `[fetchAllMatchesForUser] Fetching matches for user with ID: ${userId}`
+    `Fetched ${matchIds.length} matches for user with ID: ${userId}, page ${page}`
   );
 
-  const interactionsCollection = firestore.collection('interactions');
-  const likedUsers: string[] = [];
-  const matches: string[] = [];
-
-  const myRef = firestore.collection('users').doc(userId); // Reference to the current user's document
-
-  try {
-    let query = interactionsCollection
-      .where('userRef', '==', myRef)
-      .where('interactionType', '==', 'like')
-      .orderBy('timestamp', 'desc')
-      .limit(10);
-
-    if (lastUserTimestamp) {
-      query = query.startAfter(lastUserTimestamp);
-    }
-
-    const likesSnapshot = await query.get();
-
-    if (likesSnapshot.empty) {
-      return { matches: [] };
-    }
-
-    likesSnapshot.forEach((doc) => {
-      const otherUserRef = doc.data().otherUserRef;
-      likedUsers.push(otherUserRef.id);
-    });
-
-    for (const otherUserId of likedUsers) {
-      const otherUserRef = firestore.collection('users').doc(otherUserId);
-
-      const mutualLikeSnapshot = await interactionsCollection
-        .where('userRef', '==', otherUserRef)
-        .where('otherUserRef', '==', myRef)
-        .where('interactionType', '==', 'like')
-        .limit(1)
-        .get();
-
-      if (!mutualLikeSnapshot.empty) {
-        matches.push(`${otherUserId}`);
-      }
-    }
-
-    const lastTimestamp =
-      likesSnapshot.docs[likesSnapshot.docs.length - 1].data().timestamp;
-
-    return { matches, lastTimestamp };
-  } catch (error) {
-    console.error(
-      `[fetchAllMatchesForUser] Error fetching matches for user ${userId}: ${error}`
-    );
-    throw new Error(`Error fetching matches for user: ${error}`);
-  }
+  return { matches: matchIds };
 };
