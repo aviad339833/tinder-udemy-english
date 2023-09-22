@@ -8,13 +8,15 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "generate-users": "ts-node src/generateFakeUsers.ts"
   },
   "engines": {
     "node": "18"
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@faker-js/faker": "^8.1.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.0.1",
     "firebase-admin": "^11.8.0",
