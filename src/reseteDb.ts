@@ -42,6 +42,13 @@ export const resetAllUsers = async (): Promise<void> => {
       await chatDoc.ref.delete();
     }
 
+    // If there's a chat collection, delete the whole chat collection
+    const interactionsCollectionRef = firestore.collection('interactions');
+    const interactionsSnapshots = await interactionsCollectionRef.get();
+    for (const interactionDoc of interactionsSnapshots.docs) {
+      await interactionDoc.ref.delete();
+    }
+
     // Retrieve all user documents
     const usersSnapshots = await firestore.collection('users').get();
 

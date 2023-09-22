@@ -59,7 +59,7 @@ app.get('/', async (request: express.Request, response: express.Response) => {
         const matches = await fetchAllMatchesForUser(query.userId);
 
         // Send back the list of matches
-        response.send({ matches });
+        response.send(matches);
       } catch (error) {
         console.error('Error fetching matches:', error);
         response.status(500).send(`Error fetching matches: ${error}`);

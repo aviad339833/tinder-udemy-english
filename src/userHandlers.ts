@@ -1,7 +1,7 @@
 import * as admin from 'firebase-admin';
 
 const firestore = admin.firestore();
-const MAX_INTERACTIONS_TO_CHECK = 100;
+const PAGE_SIZE = 20;
 
 export const fetchAllUsers = async (
   excludeUserId: string
@@ -56,33 +56,44 @@ export const fetchAllUsers = async (
 };
 
 export const fetchAllMatchesForUser = async (
-  userId: string
-): Promise<unknown[]> => {
+  userId: string,
+  lastUserTimestamp?: FirebaseFirestore.Timestamp
+): Promise<{
+  matches: string[];
+  lastTimestamp?: FirebaseFirestore.Timestamp;
+}> => {
   console.log(
     `[fetchAllMatchesForUser] Fetching matches for user with ID: ${userId}`
   );
 
   const interactionsCollection = firestore.collection('interactions');
   const likedUsers: string[] = [];
-  const matches: unknown[] = [];
+  const matches: string[] = [];
 
   const myRef = firestore.collection('users').doc(userId); // Reference to the current user's document
 
   try {
-    // 1. Fetch the latest users that the given user has "liked."
-    const likesSnapshot = await interactionsCollection
+    let query = interactionsCollection
       .where('userRef', '==', myRef)
       .where('interactionType', '==', 'like')
-      .orderBy('timestamp', 'desc') // Assuming you store a timestamp with each interaction
-      .limit(MAX_INTERACTIONS_TO_CHECK)
-      .get();
+      .orderBy('timestamp', 'desc')
+      .limit(PAGE_SIZE);
+
+    if (lastUserTimestamp) {
+      query = query.startAfter(lastUserTimestamp);
+    }
+
+    const likesSnapshot = await query.get();
+
+    if (likesSnapshot.empty) {
+      return { matches: [] };
+    }
 
     likesSnapshot.forEach((doc) => {
       const otherUserRef = doc.data().otherUserRef;
       likedUsers.push(otherUserRef.id);
     });
 
-    // 2. For each of those users, check if they have also "liked" the given user.
     for (const otherUserId of likedUsers) {
       const otherUserRef = firestore.collection('users').doc(otherUserId);
 
@@ -94,14 +105,14 @@ export const fetchAllMatchesForUser = async (
         .get();
 
       if (!mutualLikeSnapshot.empty) {
-        const userData = await otherUserRef.get();
-        matches.push(userData.data());
+        matches.push(`${otherUserId}`);
       }
     }
 
-    // For simplicity, we're returning all matched user data.
-    // You can limit or paginate this as needed.
-    return matches;
+    const lastTimestamp =
+      likesSnapshot.docs[likesSnapshot.docs.length - 1].data().timestamp;
+
+    return { matches, lastTimestamp };
   } catch (error) {
     console.error(
       `[fetchAllMatchesForUser] Error fetching matches for user ${userId}: ${error}`
