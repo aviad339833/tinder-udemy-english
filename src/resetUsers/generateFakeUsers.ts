@@ -1,7 +1,5 @@
 import * as admin from 'firebase-admin';
 import { faker } from '@faker-js/faker';
-
-// Import the JSON file directly
 import serviceAccount from './firebaseserverAcount.json';
 
 // Conditional Firebase Initialization
@@ -26,24 +24,12 @@ interface User {
   year_of_birth: number;
 }
 
-/**
- * Generates a mock Firebase storage URL for user photos.
- *
- * @param {string} uid The user ID.
- * @param {number} imgNumber The image number, used for differentiation.
- * @return {string} The mock Firebase storage URL.
- */
-function generateFirebasePhotoURL(uid: string, imgNumber: number): string {
-  // eslint-disable-next-line max-len
-  return `https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b-mock.appspot.com/o/users%2F${uid}%2Fuploads%2Fimage_${imgNumber}.png?alt=media`;
+// eslint-disable-next-line require-jsdoc
+export function capitalizeFirstLetter(string: string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-/**
- * Asynchronously creates and populates random data for 10 fake users in Firestore.
- *
- * @return {Promise<void>} A promise that resolves when all users have been created.
- */
-async function createFakeUsers(): Promise<void> {
+export const createFakeUsers = async (): Promise<void> => {
   const cities = [
     'New York',
     'Los Angeles',
@@ -53,9 +39,13 @@ async function createFakeUsers(): Promise<void> {
     'Beersheva',
   ];
 
-  for (let i = 0; i < 10; i++) {
-    const genders: ('male' | 'female')[] = ['male', 'female'];
-    const gender = genders[Math.floor(Math.random() * genders.length)];
+  const totalUsers = 4;
+  const halfUsers = totalUsers / 2;
+
+  for (let i = 1; i < totalUsers + 1; i++) {
+    // Alternating gender assignment
+    const gender = i < halfUsers ? 'male' : 'female';
+    const oppositeGender = gender === 'male' ? 'female' : 'male';
 
     const email = `user${i}@gmail.com`;
     const password = '123456';
@@ -69,15 +59,15 @@ async function createFakeUsers(): Promise<void> {
       });
 
       const user: User = {
-        aditional_photos: [generateFirebasePhotoURL(userRecord.uid, i)],
+        aditional_photos: [faker.image.avatar()],
         city: cities[Math.floor(Math.random() * cities.length)],
         created_time: admin.firestore.Timestamp.now(),
         description: faker.lorem.sentence(),
         display_name: displayName,
         email: email,
-        gender: gender,
+        gender: capitalizeFirstLetter(gender),
         uid: userRecord.uid,
-        userInterestInGender: gender === 'male' ? 'Female' : 'Male',
+        userInterestInGender: capitalizeFirstLetter(oppositeGender),
         year_of_birth: faker.date
           .between({ from: '1960-01-01', to: '2000-01-01' })
           .getFullYear(),
@@ -90,6 +80,6 @@ async function createFakeUsers(): Promise<void> {
       console.error('Error creating user:', error);
     }
   }
-}
+};
 
 createFakeUsers();

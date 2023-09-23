@@ -10,7 +10,8 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "generate-users": "ts-node src/resetUsers/generateFakeUsers.ts",
-    "delete-users": "ts-node src/resetUsers/deleteFakeUsers.ts"
+    "delete-users": "ts-node src/resetUsers/deleteFakeUsers.ts",
+    "like-me": "ts-node src/resetUsers/makeEveryoneLike.ts"
   },
   "engines": {
     "node": "18"
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
+    "axios": "^1.5.0",
     "eslint": "^8.49.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",

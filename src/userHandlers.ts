@@ -22,9 +22,7 @@ export const fetchPotentialMatches = async (
   const currentUserData = currentUserDoc.data();
   if (!currentUserData) throw new Error('User not found');
 
-  // Convert userInterestInGender to lowercase
-  const userInterestInGender =
-    currentUserData.userInterestInGender.toLowerCase();
+  const userInterestInGender = currentUserData.userInterestInGender;
 
   let lastDoc; // To keep track of where to start in the next batch
   let potentialMatches: admin.firestore.DocumentData[] = [];
@@ -32,7 +30,6 @@ export const fetchPotentialMatches = async (
   while (potentialMatches.length < TARGET_SIZE) {
     let usersQuery = firestore
       .collection('users')
-      // Ensure that 'gender' in Firestore is stored in lowercase
       .where('gender', '==', userInterestInGender)
       .orderBy('created_time')
       .limit(BATCH_SIZE);
