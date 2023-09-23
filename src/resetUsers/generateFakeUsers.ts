@@ -27,9 +27,21 @@ interface User {
 }
 
 /**
- * Asynchronously creates and populates random data for 40 fake users in Firestore.
+ * Generates a mock Firebase storage URL for user photos.
  *
- * @return{Promise<void>} A promise that resolves when all users have been created.
+ * @param {string} uid The user ID.
+ * @param {number} imgNumber The image number, used for differentiation.
+ * @return {string} The mock Firebase storage URL.
+ */
+function generateFirebasePhotoURL(uid: string, imgNumber: number): string {
+  // eslint-disable-next-line max-len
+  return `https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b-mock.appspot.com/o/users%2F${uid}%2Fuploads%2Fimage_${imgNumber}.png?alt=media`;
+}
+
+/**
+ * Asynchronously creates and populates random data for 10 fake users in Firestore.
+ *
+ * @return {Promise<void>} A promise that resolves when all users have been created.
  */
 async function createFakeUsers(): Promise<void> {
   const cities = [
@@ -41,12 +53,12 @@ async function createFakeUsers(): Promise<void> {
     'Beersheva',
   ];
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 10; i++) {
     const genders: ('male' | 'female')[] = ['male', 'female'];
     const gender = genders[Math.floor(Math.random() * genders.length)];
 
-    const email = faker.internet.email();
-    const password = faker.internet.password();
+    const email = `user${i}@gmail.com`;
+    const password = '123456';
     const displayName = faker.person.firstName(gender);
 
     try {
@@ -57,18 +69,17 @@ async function createFakeUsers(): Promise<void> {
       });
 
       const user: User = {
-        aditional_photos: [faker.image.imageUrl()],
+        aditional_photos: [generateFirebasePhotoURL(userRecord.uid, i)],
         city: cities[Math.floor(Math.random() * cities.length)],
-
         created_time: admin.firestore.Timestamp.now(),
         description: faker.lorem.sentence(),
         display_name: displayName,
         email: email,
         gender: gender,
         uid: userRecord.uid,
-        userInterestInGender: gender === 'male' ? 'female' : 'male',
+        userInterestInGender: gender === 'male' ? 'Female' : 'Male',
         year_of_birth: faker.date
-          .between('1960-01-01', '2000-01-01')
+          .between({ from: '1960-01-01', to: '2000-01-01' })
           .getFullYear(),
       };
 
@@ -76,8 +87,7 @@ async function createFakeUsers(): Promise<void> {
       await firestore.collection('users').doc(user.uid).set(user);
       console.log(`User ${i + 1} created with ID: ${user.uid}`);
     } catch (error) {
-      // eslint-disable-next-line max-len
-      console.error('Error creating user:', error); // Updated to log only the message, not the full error object
+      console.error('Error creating user:', error);
     }
   }
 }

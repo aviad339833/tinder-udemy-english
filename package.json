@@ -9,7 +9,8 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "generate-users": "ts-node src/generateFakeUsers.ts"
+    "generate-users": "ts-node src/resetUsers/generateFakeUsers.ts",
+    "delete-users": "ts-node src/resetUsers/deleteFakeUsers.ts"
   },
   "engines": {
     "node": "18"
