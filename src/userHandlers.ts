@@ -118,6 +118,23 @@ export const likeUser = async (currentUserId: string, targetUserId: string) => {
   console.log(
     `Like recorded for user with ID ${targetUserId} by user with ID ${currentUserId}`
   );
+
+  // Add the current user to the liked user's "usersWhoLikedMe" sub-collection
+  const targetUserLikedBy = firestore
+    .collection('users')
+    .doc(targetUserId)
+    .collection('usersWhoLikedMe');
+
+  const likedByData = {
+    userId: currentUserId,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  await targetUserLikedBy.doc(currentUserId).set(likedByData);
+
+  console.log(
+    `User with ID ${currentUserId} added to "usersWhoLikedMe" sub-collection of user with ID ${targetUserId}`
+  );
 };
 
 export const checkForMatchAndCreateChat = async (
