@@ -1,3 +1,11 @@
+type MessageType = {
+  content: string;
+  senderId: string;
+  timestamp: unknown; // Use the appropriate type based on your timestamp
+  // Include any other fields as needed
+};
+
+/* eslint-disable operator-linebreak */
 import * as admin from 'firebase-admin';
 
 const firestore = admin.firestore();
@@ -243,14 +251,10 @@ export const fetchUsersILike = async (
 
 export const fetchAllMatchesForUser = async (
   userId: string,
-  page?: number,
-  pageSize?: number
-): Promise<{ matches: string[] }> => {
+  page = 1,
+  pageSize = 20
+): Promise<unknown[]> => {
   console.log(`Fetching page ${page} of matches for user with ID: ${userId}`);
-
-  // If 'page' and 'pageSize' are not provided, they will be assigned their default values.
-  page = page ?? 1;
-  pageSize = pageSize ?? 20;
 
   const matchesCollection = firestore
     .collection('users')
@@ -258,19 +262,202 @@ export const fetchAllMatchesForUser = async (
     .collection('matches');
 
   const matchesSnapshot = await matchesCollection
-    .orderBy('timestamp', 'desc') // Order matches by timestamp, most recent first
-    .offset((page - 1) * pageSize) // Calculate the starting point of this page
-    .limit(pageSize) // Limit the number of matches per page
+    .orderBy('timestamp', 'desc')
+    .offset((page - 1) * pageSize)
+    .limit(pageSize)
     .get();
 
-  const matchIds: string[] = [];
-  matchesSnapshot.forEach((doc) => {
-    matchIds.push(doc.id);
-  });
+  const results: unknown[] = [];
+  for (const matchDoc of matchesSnapshot.docs) {
+    const matchedUserId = matchDoc.id;
+
+    // Fetch matched person's data
+    const matchedUserDoc = await firestore
+      .collection('users')
+      .doc(matchedUserId)
+      .get();
+    const matchedPersonData = matchedUserDoc.data();
+
+    // Fetch last message between the two users
+    const chatRef = firestore
+      .collection('chats')
+      .where('user1Id', 'in', [userId, matchedUserId])
+      .where('user2Id', 'in', [userId, matchedUserId]);
+
+    const chatSnapshot = await chatRef.get();
+    let lastMessage: any = null;
+    let chatId: string | null = null; // Initialize chatId
+    if (!chatSnapshot.empty) {
+      const chatDoc = chatSnapshot.docs[0];
+      chatId = chatDoc.id; // Extract the chatId
+      const lastMessageSnapshot = await chatDoc.ref
+        .collection('messages')
+        .orderBy('timestamp', 'desc')
+        .limit(1)
+        .get();
+
+      if (!lastMessageSnapshot.empty) {
+        lastMessage = lastMessageSnapshot.docs[0].data();
+      }
+    }
+
+    results.push({
+      matchedPersonData,
+      lastMessage,
+      chatId, // Include the chatId in the result
+    });
+  }
 
   console.log(
-    `Fetched ${matchIds.length} matches for user with ID: ${userId}, page ${page}`
+    `Fetched ${results.length} matches for user with ID: ${userId}, page ${page}`
   );
 
-  return { matches: matchIds };
+  return results;
+};
+
+// NEW FUNCITNS
+export const fetchChatBetweenUsers = async (
+  user1Id: string,
+  user2Id: string
+) => {
+  console.log(`Fetching chat between ${user1Id} and ${user2Id}`);
+
+  const chatId = await chatExistsBetweenUsers(user1Id, user2Id);
+  if (!chatId) {
+    return []; // No chat exists between the users
+  }
+
+  const chatDetails = await fetchChatDetails(chatId);
+  if (!chatDetails) {
+    return []; // Chat details not found
+  }
+
+  const messages = await fetchChatMessages(chatId);
+
+  return {
+    chatDetails,
+    messages,
+  };
+};
+
+export const sendMessage = async (
+  chatId: string,
+  senderId: string,
+  content: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const chatRef = firestore.collection('chats').doc(chatId);
+    const messagesRef = chatRef.collection('messages'); // Sub-collection for messages
+
+    const messageData = {
+      senderId: senderId,
+      content: content,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await messagesRef.add(messageData); // Add the message to the sub-collection
+
+    await chatRef.update({
+      lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, message: 'Message sent successfully.' };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return { success: false, message: 'Failed to send message.' };
+  }
+};
+
+export const fetchChatMessages = async (chatId: string, limit = 50) => {
+  const messagesRef = firestore
+    .collection('chats')
+    .doc(chatId)
+    .collection('messages'); // Reference to the messages sub-collection
+
+  const messagesSnapshot = await messagesRef
+    .orderBy('timestamp', 'asc')
+    .limit(limit)
+    .get();
+  const messages = messagesSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  return messages;
+};
+
+export const fetchChatDetails = async (chatId: string) => {
+  const chatDoc = await firestore.collection('chats').doc(chatId).get();
+  if (!chatDoc.exists) return null;
+  return chatDoc.data();
+};
+
+export const chatExistsBetweenUsers = async (
+  user1Id: string,
+  user2Id: string
+): Promise<string | null> => {
+  try {
+    let chatsSnapshot = await firestore
+      .collection('chats')
+      .where('user1Id', '==', user1Id)
+      .where('user2Id', '==', user2Id)
+      .limit(1)
+      .get();
+
+    if (chatsSnapshot.empty) {
+      chatsSnapshot = await firestore
+        .collection('chats')
+        .where('user1Id', '==', user2Id)
+        .where('user2Id', '==', user1Id)
+        .limit(1)
+        .get();
+    }
+
+    return !chatsSnapshot.empty ? chatsSnapshot.docs[0].id : null;
+  } catch (error) {
+    console.error('Error checking chat existence:', error);
+    return null;
+  }
+};
+
+export const createChatBetweenUsers = async (
+  user1Id: string,
+  user2Id: string
+) => {
+  const chatRef = await firestore.collection('chats').add({
+    user1Id: user1Id,
+    user2Id: user2Id,
+    lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return chatRef.id;
+};
+
+export const fetchChatMessagesForChatId = async (
+  chatId: string,
+  limit?: number
+): Promise<MessageType[]> => {
+  console.log(`Fetching messages for chat ID: ${chatId}`);
+
+  // Define a default limit if not provided
+  limit = limit ?? 50;
+
+  const messagesCollection = firestore
+    .collection('chats')
+    .doc(chatId)
+    .collection('messages');
+
+  const messagesSnapshot = await messagesCollection
+    .orderBy('timestamp', 'desc')
+    .limit(limit)
+    .get();
+
+  const messages: MessageType[] = [];
+  messagesSnapshot.forEach((doc) => {
+    const messageData = doc.data() as MessageType;
+    messages.push(messageData);
+  });
+
+  console.log(`Fetched ${messages.length} messages for chat ID: ${chatId}`);
+
+  return messages;
 };

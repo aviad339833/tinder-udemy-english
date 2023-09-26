@@ -5,12 +5,17 @@ initializeApp();
 
 import * as functions from 'firebase-functions';
 import {
+  chatExistsBetweenUsers,
   checkForMatchAndCreateChat,
+  createChatBetweenUsers,
   dislikeUser,
   fetchAllMatchesForUser,
+  fetchChatBetweenUsers,
+  fetchChatMessagesForChatId,
   fetchPotentialMatches,
   fetchUsersILike,
   likeUser,
+  sendMessage,
 } from './userHandlers';
 import { resetAllUsers } from './reseteDb';
 
@@ -21,33 +26,80 @@ interface IRequest {
   myId: string;
   ThePersonThatILiked?: string;
   thePersonThatIDontLiked?: string;
+  // For sending a message
+  recipientId?: string; // ID of the user to whom the message is being sent
+  message?: string; // The actual message text/content
 }
 
 interface IQuery {
-  limit: number;
   type: string;
-  userId: string;
+  userId?: string;
+  secondUserId?: string;
+  chatId?: string;
+  limit?: number;
 }
 
 app.get('/', async (request: express.Request, response: express.Response) => {
   const query = request.query as unknown as IQuery;
+
   console.log('started query', query);
   switch (query.type) {
     case 'fetchPotentialMatches': {
+      if (!query.userId) {
+        response.status(400).send('userId is required.');
+        return;
+      }
       const users = await fetchPotentialMatches(query.userId);
       response.send(users);
       break;
     }
     case 'fetchAllMatches': {
+      if (!query.userId) {
+        response.status(400).send('userId is required.');
+        return;
+      }
       const matches = await fetchAllMatchesForUser(query.userId);
       response.send(matches);
       break;
     }
+
+    case 'fetchChatMessages': {
+      if (!query.chatId) {
+        response.status(400).send('chatId is required.');
+        return;
+      }
+
+      const chatMessages = await fetchChatMessagesForChatId(
+        query.chatId,
+        query.limit
+      );
+      response.send(chatMessages);
+      break;
+    }
+
     case 'fetchUsersILike': {
+      if (!query.userId) {
+        response.status(400).send('userId is required.');
+        return;
+      }
       const likedUsers = await fetchUsersILike(query.userId, query.limit || 20);
       response.send({ likedUsers });
       break;
     }
+    case 'fetchChatBetweenUsers': {
+      if (!query.userId || !query.secondUserId) {
+        response.status(400).send('Both userId and secondUserId are required.');
+        return;
+      }
+
+      const chatMessages = await fetchChatBetweenUsers(
+        query.userId,
+        query.secondUserId
+      );
+      response.send(chatMessages);
+      break;
+    }
+
     default:
       response.send('Unknown GET action');
       break;
@@ -90,6 +142,34 @@ app.post('/', async (request: express.Request, response: express.Response) => {
       response.send(notLikeResult);
       break;
     }
+
+    case 'sendMessage': {
+      // Validate the necessary parameters
+      if (!body.recipientId || !body.message) {
+        return response.status(400).send({
+          success: false,
+          message: 'Both recipientId and message are required.',
+        });
+      }
+
+      let chatId = await chatExistsBetweenUsers(body.myId, body.recipientId);
+
+      // If no chat exists between the users, create one
+      if (!chatId) {
+        chatId = await createChatBetweenUsers(body.myId, body.recipientId);
+      }
+
+      // Send the message and get the result
+      const sendResult = await sendMessage(chatId, body.myId, body.message);
+
+      if (sendResult.success) {
+        response.status(200).send(sendResult);
+      } else {
+        response.status(500).send(sendResult);
+      }
+      break;
+    }
+
     default:
       response.send('Unknown POST action');
       break;

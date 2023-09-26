@@ -36,10 +36,10 @@ export const createFakeUsers = async (): Promise<void> => {
     'Chicago',
     'Houston',
     'Phoenix',
-    'Beersheva',
+    'Beersheba',
   ];
 
-  const totalUsers = 4;
+  const totalUsers = 2;
   const halfUsers = totalUsers / 2;
 
   for (let i = 1; i < totalUsers + 1; i++) {
@@ -59,7 +59,7 @@ export const createFakeUsers = async (): Promise<void> => {
       });
 
       const user: User = {
-        aditional_photos: [faker.image.avatar()],
+        aditional_photos: [faker.image.url()],
         city: cities[Math.floor(Math.random() * cities.length)],
         created_time: admin.firestore.Timestamp.now(),
         description: faker.lorem.sentence(),

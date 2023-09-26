@@ -44,6 +44,7 @@ export const deleteAllUsersExceptOne: () => Promise<void> = async () => {
 
       // Delete the user document from Firestore
       await firestore.collection('users').doc(uid).delete();
+      await firestore.collection('chats').doc(uid).delete();
       console.log(`User with ID: ${uid} deleted from Firestore.`);
     }
   } catch (error) {
