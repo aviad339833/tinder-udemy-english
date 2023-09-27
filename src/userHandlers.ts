@@ -363,7 +363,7 @@ export const sendMessage = async (
 
     return { success: true, message: 'Message sent successfully.' };
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error sending message:', error); // Logging the specific error message
     return { success: false, message: 'Failed to send message.' };
   }
 };
@@ -447,7 +447,7 @@ export const fetchChatMessagesForChatId = async (
     .collection('messages');
 
   const messagesSnapshot = await messagesCollection
-    .orderBy('timestamp', 'desc')
+    .orderBy('timestamp', 'asc')
     .limit(limit)
     .get();
 
@@ -460,4 +460,15 @@ export const fetchChatMessagesForChatId = async (
   console.log(`Fetched ${messages.length} messages for chat ID: ${chatId}`);
 
   return messages;
+};
+
+export const doesChatExist = async (chatId: string): Promise<boolean> => {
+  try {
+    const chatRef = firestore.collection('chats').doc(chatId);
+    const chatDoc = await chatRef.get();
+    return chatDoc.exists;
+  } catch (error) {
+    console.error('Error checking chat existence:', error);
+    return false;
+  }
 };

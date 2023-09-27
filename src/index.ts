@@ -5,10 +5,9 @@ initializeApp();
 
 import * as functions from 'firebase-functions';
 import {
-  chatExistsBetweenUsers,
   checkForMatchAndCreateChat,
-  createChatBetweenUsers,
   dislikeUser,
+  doesChatExist,
   fetchAllMatchesForUser,
   fetchChatBetweenUsers,
   fetchChatMessagesForChatId,
@@ -29,6 +28,7 @@ interface IRequest {
   // For sending a message
   recipientId?: string; // ID of the user to whom the message is being sent
   message?: string; // The actual message text/content
+  chatId?: string;
 }
 
 interface IQuery {
@@ -145,22 +145,28 @@ app.post('/', async (request: express.Request, response: express.Response) => {
 
     case 'sendMessage': {
       // Validate the necessary parameters
-      if (!body.recipientId || !body.message) {
+      if (!body.chatId || !body.message) {
         return response.status(400).send({
           success: false,
-          message: 'Both recipientId and message are required.',
+          message: 'Both chatId and message are required.',
         });
       }
 
-      let chatId = await chatExistsBetweenUsers(body.myId, body.recipientId);
+      const chatExists = await doesChatExist(body.chatId);
 
-      // If no chat exists between the users, create one
-      if (!chatId) {
-        chatId = await createChatBetweenUsers(body.myId, body.recipientId);
+      if (!chatExists) {
+        return response.status(400).send({
+          success: false,
+          message: 'No chat found with the provided chatId.',
+        });
       }
 
       // Send the message and get the result
-      const sendResult = await sendMessage(chatId, body.myId, body.message);
+      const sendResult = await sendMessage(
+        body.chatId,
+        body.myId,
+        body.message
+      );
 
       if (sendResult.success) {
         response.status(200).send(sendResult);
