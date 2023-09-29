@@ -164,10 +164,8 @@ export const checkForMatchAndCreateChat = async (
     interactionDoc.exists &&
     interactionDoc.get('interactionType') === 'like'
   ) {
-    // eslint-disable-next-line quotes
-    console.log("It's a match!");
+    console.log('Its a match!');
 
-    // Record the match for both users
     const currentUserMatches = firestore
       .collection('users')
       .doc(currentUserId)
@@ -177,15 +175,21 @@ export const checkForMatchAndCreateChat = async (
       .doc(targetUserId)
       .collection('matches');
 
-    const matchData = {
+    const matchDataForCurrentUser = {
       matchedUserId: targetUserId,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      viewed: false, // this indicates the current user hasn't viewed the match yet
     };
 
-    await currentUserMatches.doc(targetUserId).set(matchData);
+    await currentUserMatches.doc(targetUserId).set(matchDataForCurrentUser);
 
-    matchData.matchedUserId = currentUserId;
-    await targetUserMatches.doc(currentUserId).set(matchData);
+    const matchDataForTargetUser = {
+      matchedUserId: currentUserId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      viewed: false, // this indicates the target user hasn't viewed the match yet
+    };
+
+    await targetUserMatches.doc(currentUserId).set(matchDataForTargetUser);
 
     // Create a new chat for the matched users
     const chatData = {
@@ -196,16 +200,21 @@ export const checkForMatchAndCreateChat = async (
 
     const chatRef = await firestore.collection('chats').add(chatData);
 
-    // Optionally notify both users about the match
-
     console.log(
       `Matched and chat created for ${currentUserId} and ${targetUserId}`
     );
-    return chatRef.id; // return the chat ID if you want to redirect users to the chat immediately
+
+    // Return JSON response indicating a match
+    return {
+      status: 'matched',
+      chatId: chatRef.id,
+    };
   }
 
   console.log(`No match found between ${currentUserId} and ${targetUserId}`);
-  return null;
+
+  // Return JSON response indicating only a like
+  return 'liked';
 };
 
 export const fetchUsersILike = async (

@@ -1,6 +1,4 @@
 import * as admin from 'firebase-admin';
-
-// Import the JSON file directly
 import serviceAccount from './firebaseserverAcount.json';
 
 // Conditional Firebase Initialization
@@ -12,44 +10,64 @@ if (!admin.apps.length) {
 
 const firestore = admin.firestore();
 
-export const deleteAllUsersExceptOne: () => Promise<void> = async () => {
-  const EXCLUDE_UID = 'u8wXgdinCSgVj88J85SS8vUfHOo1';
+// eslint-disable-next-line require-jsdoc
+export async function deleteSubcollection(
+  docRef: admin.firestore.DocumentReference,
+  subcollectionName: string
+) {
+  const snapshot = await docRef.collection(subcollectionName).get();
+  const batch = firestore.batch();
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+}
 
-  try {
-    const usersSnapshot = await firestore.collection('users').get();
+export const deleteSpecificUsers: () => Promise<void> = async () => {
+  // Define the list of emails of users to be deleted
+  const emailsToDelete = [
+    'f1@gmail.com',
+    'f2@gmail.com',
+    'f3@gmail.com',
+    'm1@gmail.com',
+    'm2@gmail.com',
+    'm3@gmail.com',
+  ];
 
-    // Fetch all users except the one with EXCLUDE_UID
-    const usersToDelete = usersSnapshot.docs.filter(
-      (doc) => doc.id !== EXCLUDE_UID
-    );
+  for (const email of emailsToDelete) {
+    try {
+      // Fetch the user by email
+      const userRecord = await admin.auth().getUserByEmail(email);
+      const uid = userRecord.uid;
 
-    for (const user of usersToDelete) {
-      const uid = user.id;
-
-      try {
-        // Delete the user from Firebase Authentication
-        await admin.auth().deleteUser(uid);
-        console.log(`User with ID: ${uid} deleted from Firebase Auth.`);
-      } catch (error) {
-        const authError = error as { code?: string }; // Type assertion
-        if (authError.code === 'auth/user-not-found') {
-          console.warn(`User with ID: ${uid} not found in Firebase Auth.`);
-        } else {
-          console.error(
-            `Error deleting user with ID: ${uid} from Firebase Auth:`,
-            authError
-          );
-        }
-      }
+      // Delete subcollections associated with the user
+      const userDocRef = firestore.collection('users').doc(uid);
+      await deleteSubcollection(userDocRef, 'interactions');
+      await deleteSubcollection(userDocRef, 'matches');
+      await deleteSubcollection(userDocRef, 'usersWhoLikedMe');
 
       // Delete the user document from Firestore
-      await firestore.collection('users').doc(uid).delete();
-      await firestore.collection('chats').doc(uid).delete();
-      console.log(`User with ID: ${uid} deleted from Firestore.`);
+      await userDocRef.delete();
+      console.log(`User with email: ${email} deleted from Firestore.`);
+
+      // Delete chats and their subcollections
+      const chatDocRef = firestore.collection('chats').doc(uid);
+      await deleteSubcollection(chatDocRef, 'messages'); // Assuming a 'messages' subcollection for chats
+      await chatDocRef.delete();
+      console.log(
+        `Chat associated with email: ${email} deleted from Firestore.`
+      );
+
+      // Delete user from Firebase Authentication
+      await admin.auth().deleteUser(uid);
+      console.log(
+        `User with email: ${email} deleted from Firebase Authentication.`
+      );
+    } catch (error) {
+      console.error(`Error processing user with email ${email}: ${error}`);
     }
-  } catch (error) {
-    console.error('Error deleting users:', error);
   }
 };
 
-deleteAllUsersExceptOne();
+// Execute the function to delete specific users
+deleteSpecificUsers();

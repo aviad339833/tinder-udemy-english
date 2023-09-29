@@ -125,7 +125,7 @@ app.post('/', async (request: express.Request, response: express.Response) => {
         body.myId,
         body.ThePersonThatILiked
       );
-      response.send(matchResult);
+      response.json(matchResult);
       break;
     }
 
