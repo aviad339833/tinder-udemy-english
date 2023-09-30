@@ -92,3 +92,85 @@ Building a dating app similar to Tinder involves creating a robust data structur
 - Ensure data integrity by using Firestore's transactional operations when updating multiple documents or collections simultaneously.
 
 Building such an app requires careful consideration of user experience, data integrity, and scalability. The structure provided is a starting point, but you might need to adapt and modify it based on user needs and application nuances.
+
+[
+{
+"matchedPersonData": {
+"created_time": {
+"\_seconds": 1695732726,
+"\_nanoseconds": 642000000
+},
+"uid": "OBmMdXFDQSfPvfVh47hZtIlsssb2",
+"city": "Beersheba",
+"description": "Testimonium avarus annus super adficio.",
+"display_name": "Molly",
+"email": "user2@gmail.com",
+"year_of_birth": 1973,
+"aditional_photos": [
+"https://firebasestorage.googleapis.com/v0/b/tinder-app-af33b.appspot.com/o/users%2FOBmMdXFDQSfPvfVh47hZtIlsssb2%2Fuploads%2F1695733090278000_0.jpeg?alt=media&token=124875d7-d337-4784-86a4-e93f59a41a3f"
+],
+"userInterestInGender": "Female",
+"gender": "Male"
+},
+"lastMessage": {
+"senderId": "OBmMdXFDQSfPvfVh47hZtIlsssb2",
+"content": " what are you up to ?",
+"timestamp": {
+"\_seconds": 1695736097,
+"\_nanoseconds": 91000000
+}
+},
+"chatId": "Y5IAXYMiGzqUjsvCtKCi"
+}
+]
+
+{
+"senderId": "OBmMdXFDQSfPvfVh47hZtIlsssb2",
+"content": " what are you up to ?",
+"timestamp": {
+"\_seconds": 1695736097,
+"\_nanoseconds": 91000000
+}
+},
+
+DB stracture:
+users
+-id
+--uid: User ID.
+--city: The city where the user is located (e.g., "Phoenix").
+--created_time: The timestamp when the user's account was created (September 29, 2023 at 11:42:50 AM UTC-4).
+--description: User's description or bio.
+--display_name: User's display name (e.g., "Melinda").
+--email: User's email address.
+--gender: User's gender (e.g., "Female").
+--userInterestInGender: User's interest in a specific gender (e.g., "Male").
+--year_of_birth: User's year of birth (e.g., 1978).
+--aditional_photos: An array of additional photo URLs.
+--interactions (subcolection)
+---id
+----interactionType "like" (string)
+----targetUserId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
+----timestamp September 29, 2023 at 12:55:59 PM UTC-4 (timestamp)
+
+--matches (subcolection)
+---id
+----matchedUserId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
+----timestamp September 29, 2023 at 12:56:23 PM UTC-4 (timestamp)
+----viewed false (boolean)
+
+--usersWhoLikedMe (subcolection)
+---id
+----timestamp September 29, 2023 at 12:56:22 PM UTC-4 (timestamp)
+---userId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
+
+another global collection:
+chats:
+-id
+--lastMessageTimestamp September 29, 2023 at 12:58:43 PM UTC-4 (timestamp)
+--user1Id "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
+--user2Id "luTmNoo5rlNPpVnOcCqWdk45lWZ2" (string)
+--messages (subcolection)
+---id
+----content "hey how are you ?" (string)
+----senderId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
+----timestamp September 29, 2023 at 12:58:43 PM UTC-4 (timestamp)
