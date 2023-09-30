@@ -152,6 +152,14 @@ users
 ----targetUserId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
 ----timestamp September 29, 2023 at 12:55:59 PM UTC-4 (timestamp)
 
+--notifications (subcolection)
+---id
+----content "You have a new match!" (string)
+----fromUserId "X1d4kPCLVVQGDantRUyTNI9M3uo1" (string)
+----timestamp September 29, 2023 at 10:12:55 PM UTC-4 (timestamp)
+----type "match" (string)
+----viewed false (boolean)
+
 --matches (subcolection)
 ---id
 ----matchedUserId "sdadsInhkPgabGf5RSp5r4CkMfL2" (string)
