@@ -20,171 +20,121 @@ import { resetAllUsers } from './reseteDb';
 
 const app = express();
 
-interface IRequest {
-  type: string;
-  myId: string;
-  ThePersonThatILiked?: string;
-  thePersonThatIDontLiked?: string;
-  // For sending a message
-  recipientId?: string; // ID of the user to whom the message is being sent
-  message?: string; // The actual message text/content
-  chatId?: string;
-}
+app.get('/fetchPotentialMatches', async (req, res) => {
+  const userId = req.query.userId as string;
+  if (!userId) {
+    return res.status(400).send('userId is required.');
+  }
 
-interface IQuery {
-  type: string;
-  userId?: string;
-  secondUserId?: string;
-  chatId?: string;
-  limit?: number;
-}
+  const users = await fetchPotentialMatches(userId);
+  res.send(users);
+});
 
-app.get('/', async (request: express.Request, response: express.Response) => {
-  const query = request.query as unknown as IQuery;
+app.get('/fetchAllMatches', async (req, res) => {
+  const userId = req.query.userId as string;
+  if (!userId) {
+    return res.status(400).send('userId is required.');
+  }
 
-  console.log('started query', query);
-  switch (query.type) {
-    case 'fetchPotentialMatches': {
-      if (!query.userId) {
-        response.status(400).send('userId is required.');
-        return;
-      }
-      const users = await fetchPotentialMatches(query.userId);
-      response.send(users);
-      break;
-    }
-    case 'fetchAllMatches': {
-      if (!query.userId) {
-        response.status(400).send('userId is required.');
-        return;
-      }
-      const matches = await fetchAllMatchesForUser(query.userId);
-      response.send(matches);
-      break;
-    }
+  const matches = await fetchAllMatchesForUser(userId);
+  res.send(matches);
+});
 
-    case 'fetchChatMessages': {
-      if (!query.chatId) {
-        response.status(400).send('chatId is required.');
-        return;
-      }
+app.get('/fetchChatMessages', async (req, res) => {
+  const chatId = req.query.chatId as string;
+  const limit = parseInt(req.query.limit as string) || undefined;
 
-      const chatMessages = await fetchChatMessagesForChatId(
-        query.chatId,
-        query.limit
-      );
-      response.send(chatMessages);
-      break;
-    }
+  if (!chatId) {
+    return res.status(400).send('chatId is required.');
+  }
 
-    case 'fetchUsersILike': {
-      if (!query.userId) {
-        response.status(400).send('userId is required.');
-        return;
-      }
-      const likedUsers = await fetchUsersILike(query.userId, query.limit || 20);
-      response.send({ likedUsers });
-      break;
-    }
-    case 'fetchChatBetweenUsers': {
-      if (!query.userId || !query.secondUserId) {
-        response.status(400).send('Both userId and secondUserId are required.');
-        return;
-      }
+  const chatMessages = await fetchChatMessagesForChatId(chatId, limit);
+  res.send(chatMessages);
+});
 
-      const chatMessages = await fetchChatBetweenUsers(
-        query.userId,
-        query.secondUserId
-      );
-      response.send(chatMessages);
-      break;
-    }
+app.get('/fetchUsersILike', async (req, res) => {
+  const userId = req.query.userId as string;
+  const limit = parseInt(req.query.limit as string) || 20;
 
-    default:
-      response.send('Unknown GET action');
-      break;
+  if (!userId) {
+    return res.status(400).send('userId is required.');
+  }
+
+  const likedUsers = await fetchUsersILike(userId, limit);
+  res.send({ likedUsers });
+});
+
+app.get('/fetchChatBetweenUsers', async (req, res) => {
+  const userId = req.query.userId as string;
+  const secondUserId = req.query.secondUserId as string;
+
+  if (!userId || !secondUserId) {
+    return res.status(400).send('Both userId and secondUserId are required.');
+  }
+
+  const chatMessages = await fetchChatBetweenUsers(userId, secondUserId);
+  res.send(chatMessages);
+});
+
+// post
+app.post('/likeUser', async (req, res) => {
+  const { myId, ThePersonThatILiked } = req.body;
+  if (!ThePersonThatILiked) {
+    return res.status(400).send('ThePersonThatILiked parameter is missing.');
+  }
+
+  await likeUser(myId, ThePersonThatILiked);
+  // Now, check for a mutual match
+  const matchResult = await checkForMatchAndCreateChat(
+    myId,
+    ThePersonThatILiked
+  );
+  res.json(matchResult);
+});
+
+app.post('/dislikeUser', async (req, res) => {
+  const { myId, thePersonThatIDontLiked } = req.body;
+  if (!thePersonThatIDontLiked) {
+    return res
+      .status(400)
+      .send('thePersonThatIDontLiked parameter is missing.');
+  }
+
+  const notLikeResult = await dislikeUser(myId, thePersonThatIDontLiked);
+  res.send(notLikeResult);
+});
+
+app.post('/sendMessage', async (req, res) => {
+  const { chatId, myId, message } = req.body;
+
+  if (!chatId || !message) {
+    return res.status(400).send({
+      success: false,
+      message: 'Both chatId and message are required.',
+    });
+  }
+
+  const chatExists = await doesChatExist(chatId);
+
+  if (!chatExists) {
+    return res.status(400).send({
+      success: false,
+      message: 'No chat found with the provided chatId.',
+    });
+  }
+
+  const sendResult = await sendMessage(chatId, myId, message);
+
+  if (sendResult.success) {
+    res.status(200).send(sendResult);
+  } else {
+    res.status(500).send(sendResult);
   }
 });
 
-app.post('/', async (request: express.Request, response: express.Response) => {
-  const body: IRequest = request.body;
-  console.log('body', body);
-  switch (body.type) {
-    case 'personThatILike': {
-      if (!body.ThePersonThatILiked) {
-        return response
-          .status(400)
-          .send('ThePersonThatILiked parameter is missing.');
-      }
-
-      // Register the "like" action for the current user
-      await likeUser(body.myId, body.ThePersonThatILiked);
-
-      // Now, check for a mutual match
-      const matchResult = await checkForMatchAndCreateChat(
-        body.myId,
-        body.ThePersonThatILiked
-      );
-      response.json(matchResult);
-      break;
-    }
-
-    case 'personThatIDislike': {
-      if (!body.thePersonThatIDontLiked) {
-        return response
-          .status(400)
-          .send('ThePersonThatILiked parameter is missing.');
-      }
-      const notLikeResult = await dislikeUser(
-        body.myId,
-        body.thePersonThatIDontLiked
-      );
-      response.send(notLikeResult);
-      break;
-    }
-
-    case 'sendMessage': {
-      // Validate the necessary parameters
-      if (!body.chatId || !body.message) {
-        return response.status(400).send({
-          success: false,
-          message: 'Both chatId and message are required.',
-        });
-      }
-
-      const chatExists = await doesChatExist(body.chatId);
-
-      if (!chatExists) {
-        return response.status(400).send({
-          success: false,
-          message: 'No chat found with the provided chatId.',
-        });
-      }
-
-      // Send the message and get the result
-      const sendResult = await sendMessage(
-        body.chatId,
-        body.myId,
-        body.message
-      );
-
-      if (sendResult.success) {
-        response.status(200).send(sendResult);
-      } else {
-        response.status(500).send(sendResult);
-      }
-      break;
-    }
-
-    default:
-      response.send('Unknown POST action');
-      break;
-  }
-});
-
-app.delete('/reset-all-users', async (request, response) => {
+app.delete('/reset-all-users', async (req, res) => {
   await resetAllUsers();
-  response.status(200).send('All users have been reset.');
+  res.status(200).send('All users have been reset.');
 });
 
 export const api = functions.https.onRequest(app);

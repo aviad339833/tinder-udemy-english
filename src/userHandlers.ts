@@ -145,6 +145,53 @@ export const likeUser = async (currentUserId: string, targetUserId: string) => {
   );
 };
 
+export const fetchUnreadNotifications = async (
+  userId: string
+): Promise<{
+  unreadMatches: number;
+  unreadMessages: number;
+  notifications: Array<any>;
+}> => {
+  const userRef = firestore.collection('users').doc(userId);
+  const notificationsRef = userRef
+    .collection('notifications')
+    .where('viewed', '==', false);
+
+  let unreadMatches = 0;
+  let unreadMessages = 0;
+  const notifications: Array<any> = [];
+
+  const snapshot = await notificationsRef.get();
+
+  snapshot.forEach((doc) => {
+    const notificationData = doc.data();
+    notifications.push(notificationData);
+
+    switch (notificationData.type) {
+      case 'match':
+        unreadMatches++;
+        break;
+      case 'message':
+        unreadMessages++;
+        break;
+    }
+  });
+
+  return { unreadMatches, unreadMessages, notifications };
+};
+
+// const markNotificationAsRead = async (
+//   userId: string,
+//   notificationId: string
+// ) => {
+//   await firestore
+//     .collection('users')
+//     .doc(userId)
+//     .collection('notifications')
+//     .doc(notificationId)
+//     .update({ viewed: true });
+// };
+
 export const checkForMatchAndCreateChat = async (
   currentUserId: string,
   targetUserId: string
@@ -178,7 +225,6 @@ export const checkForMatchAndCreateChat = async (
     const matchDataForCurrentUser = {
       matchedUserId: targetUserId,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      viewed: false, // this indicates the current user hasn't viewed the match yet
     };
 
     await currentUserMatches.doc(targetUserId).set(matchDataForCurrentUser);
@@ -186,7 +232,6 @@ export const checkForMatchAndCreateChat = async (
     const matchDataForTargetUser = {
       matchedUserId: currentUserId,
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
-      viewed: false, // this indicates the target user hasn't viewed the match yet
     };
 
     await targetUserMatches.doc(currentUserId).set(matchDataForTargetUser);
@@ -200,11 +245,38 @@ export const checkForMatchAndCreateChat = async (
 
     const chatRef = await firestore.collection('chats').add(chatData);
 
+    // Notification for current user
+    const notificationForCurrentUser = {
+      type: 'match',
+      fromUserId: targetUserId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      content: 'You have a new match!',
+      viewed: false,
+    };
+    firestore
+      .collection('users')
+      .doc(currentUserId)
+      .collection('notifications')
+      .add(notificationForCurrentUser);
+
+    // Notification for target user
+    const notificationForTargetUser = {
+      type: 'match',
+      fromUserId: currentUserId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      content: 'You have a new match!',
+      viewed: false,
+    };
+    firestore
+      .collection('users')
+      .doc(targetUserId)
+      .collection('notifications')
+      .add(notificationForTargetUser);
+
     console.log(
       `Matched and chat created for ${currentUserId} and ${targetUserId}`
     );
 
-    // Return JSON response indicating a match
     return {
       status: 'matched',
       chatId: chatRef.id,
@@ -212,9 +284,69 @@ export const checkForMatchAndCreateChat = async (
   }
 
   console.log(`No match found between ${currentUserId} and ${targetUserId}`);
-
-  // Return JSON response indicating only a like
   return 'liked';
+};
+
+export const sendMessage = async (
+  chatId: string,
+  senderId: string,
+  content: string
+): Promise<{ success: boolean; message: string }> => {
+  try {
+    const chatRef = firestore.collection('chats').doc(chatId);
+    const chatDoc = await chatRef.get();
+
+    if (!chatDoc.exists) {
+      throw new Error('Chat does not exist.');
+    }
+
+    const chatData = chatDoc.data();
+
+    if (!chatData) {
+      throw new Error('Chat data is unavailable.');
+    }
+
+    const user1Id = chatData.user1Id;
+    const user2Id = chatData.user2Id;
+
+    // Identify the recipient
+    const recipientId = user1Id === senderId ? user2Id : user1Id;
+
+    const messagesRef = chatRef.collection('messages');
+
+    // Including the 'read' field set to false
+    const messageData = {
+      senderId: senderId,
+      content: content,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      read: false, // Indicates the message is unread
+    };
+
+    await messagesRef.add(messageData);
+
+    await chatRef.update({
+      lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Create a notification for the recipient
+    const notificationData = {
+      type: 'message',
+      fromUserId: senderId,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      content: 'You have a new message!',
+      viewed: false,
+    };
+    firestore
+      .collection('users')
+      .doc(recipientId)
+      .collection('notifications')
+      .add(notificationData);
+
+    return { success: true, message: 'Message sent successfully.' };
+  } catch (error) {
+    console.error('Error sending message:', error); // Logging the specific error message
+    return { success: false, message: 'Failed to send message.' };
+  }
 };
 
 export const fetchUsersILike = async (
@@ -347,34 +479,6 @@ export const fetchChatBetweenUsers = async (
     chatDetails,
     messages,
   };
-};
-
-export const sendMessage = async (
-  chatId: string,
-  senderId: string,
-  content: string
-): Promise<{ success: boolean; message: string }> => {
-  try {
-    const chatRef = firestore.collection('chats').doc(chatId);
-    const messagesRef = chatRef.collection('messages'); // Sub-collection for messages
-
-    const messageData = {
-      senderId: senderId,
-      content: content,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    await messagesRef.add(messageData); // Add the message to the sub-collection
-
-    await chatRef.update({
-      lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return { success: true, message: 'Message sent successfully.' };
-  } catch (error) {
-    console.error('Error sending message:', error); // Logging the specific error message
-    return { success: false, message: 'Failed to send message.' };
-  }
 };
 
 export const fetchChatMessages = async (chatId: string, limit = 50) => {
