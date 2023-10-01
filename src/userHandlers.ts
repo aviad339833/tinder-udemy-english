@@ -1,3 +1,5 @@
+import * as functions from 'firebase-functions';
+
 type MessageType = {
   content: string;
   senderId: string;
@@ -12,7 +14,7 @@ const firestore = admin.firestore();
 
 export const fetchPotentialMatches = async (
   userId: string
-): Promise<admin.firestore.DocumentData[]> => {
+): Promise<{ users: admin.firestore.DocumentData[] }> => {
   console.log(`Fetching potential matches for user with ID: ${userId}`);
 
   const TARGET_SIZE = 20; // Desired number of potential matches
@@ -66,7 +68,7 @@ export const fetchPotentialMatches = async (
   console.log(
     `Fetched ${potentialMatches.length} potential matches for user with ID: ${userId}.`
   );
-  return potentialMatches;
+  return { users: potentialMatches };
 };
 
 export const dislikeUser = async (
@@ -192,6 +194,35 @@ export const fetchUnreadNotifications = async (
 //     .update({ viewed: true });
 // };
 
+// Function to check for unread notifications and update the user's document
+export const checkNotifications = functions.firestore
+  .document('users/{userId}/notifications/{notificationId}')
+  .onWrite(async (change, context) => {
+    const userId = context.params.userId;
+
+    // Get a reference to the user's document
+    const userRef = admin.firestore().collection('users').doc(userId);
+
+    // Query the notifications sub-collection for unread notifications
+    const notificationsQuery = userRef
+      .collection('notifications')
+      .where('viewed', '==', false);
+
+    try {
+      // Check if there are any unread notifications
+      const notificationsSnapshot = await notificationsQuery.get();
+      const hasUnreadNotifications = !notificationsSnapshot.empty;
+
+      // Update the user's document with the 'hasUnreadNotifications' field
+      await userRef.update({ hasUnreadNotifications });
+
+      console.log(
+        `User ${userId} has unread notifications: ${hasUnreadNotifications}`
+      );
+    } catch (error) {
+      console.error('Error checking notifications:', error);
+    }
+  });
 export const checkForMatchAndCreateChat = async (
   currentUserId: string,
   targetUserId: string

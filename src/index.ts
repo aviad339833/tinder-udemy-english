@@ -20,6 +20,7 @@ import { resetAllUsers } from './reseteDb';
 
 const app = express();
 
+// works
 app.get('/fetchPotentialMatches', async (req, res) => {
   const userId = req.query.userId as string;
   if (!userId) {
@@ -78,29 +79,29 @@ app.get('/fetchChatBetweenUsers', async (req, res) => {
 
 // post
 app.post('/likeUser', async (req, res) => {
-  const { myId, ThePersonThatILiked } = req.body;
-  if (!ThePersonThatILiked) {
+  const { currentUserId, targetUserId } = req.body;
+  if (!targetUserId || !currentUserId) {
     return res.status(400).send('ThePersonThatILiked parameter is missing.');
   }
 
-  await likeUser(myId, ThePersonThatILiked);
+  await likeUser(currentUserId, targetUserId);
   // Now, check for a mutual match
   const matchResult = await checkForMatchAndCreateChat(
-    myId,
-    ThePersonThatILiked
+    currentUserId,
+    targetUserId
   );
   res.json(matchResult);
 });
 
 app.post('/dislikeUser', async (req, res) => {
-  const { myId, thePersonThatIDontLiked } = req.body;
-  if (!thePersonThatIDontLiked) {
+  const { currentUserId, targetUserId } = req.body;
+  if (!targetUserId || !currentUserId) {
     return res
       .status(400)
       .send('thePersonThatIDontLiked parameter is missing.');
   }
 
-  const notLikeResult = await dislikeUser(myId, thePersonThatIDontLiked);
+  const notLikeResult = await dislikeUser(currentUserId, targetUserId);
   res.send(notLikeResult);
 });
 
