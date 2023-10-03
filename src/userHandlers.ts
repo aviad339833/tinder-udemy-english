@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import * as functions from 'firebase-functions';
 
 type MessageType = {
@@ -14,61 +15,84 @@ const firestore = admin.firestore();
 
 export const fetchPotentialMatches = async (
   userId: string
-): Promise<{ users: admin.firestore.DocumentData[] }> => {
+): Promise<{ users: admin.firestore.DocumentData[]; message?: string }> => {
   console.log(`Fetching potential matches for user with ID: ${userId}`);
 
-  const TARGET_SIZE = 20; // Desired number of potential matches
-  const BATCH_SIZE = 100; // Fetch size for each query
+  try {
+    const TARGET_SIZE = 20; // Desired number of potential matches
+    const BATCH_SIZE = 100; // Fetch size for each query
 
-  const interactionsCollection = firestore
-    .collection('users')
-    .doc(userId)
-    .collection('interactions');
-  const likedAndDislikedUsers = await interactionsCollection.get();
-  const excludedUserIds = likedAndDislikedUsers.docs.map((doc) => doc.id);
-  excludedUserIds.push(userId); // Exclude the user themself
-
-  const currentUserDoc = await firestore.collection('users').doc(userId).get();
-  const currentUserData = currentUserDoc.data();
-  if (!currentUserData) throw new Error('User not found');
-
-  const userInterestInGender = currentUserData.userInterestInGender;
-
-  let lastDoc; // To keep track of where to start in the next batch
-  let potentialMatches: admin.firestore.DocumentData[] = [];
-
-  while (potentialMatches.length < TARGET_SIZE) {
-    let usersQuery = firestore
+    const interactionsCollection = firestore
       .collection('users')
-      .where('gender', '==', userInterestInGender)
-      .orderBy('created_time')
-      .limit(BATCH_SIZE);
+      .doc(userId)
+      .collection('interactions');
 
-    if (lastDoc) {
-      usersQuery = usersQuery.startAfter(lastDoc);
+    const likedAndDislikedUsers = await interactionsCollection.get();
+    const excludedUserIds = likedAndDislikedUsers.docs.map((doc) => doc.id);
+    excludedUserIds.push(userId); // Exclude the user themself
+
+    const currentUserDoc = await firestore
+      .collection('users')
+      .doc(userId)
+      .get();
+    const currentUserData = currentUserDoc.data();
+
+    if (!currentUserData) {
+      console.warn(`User with ID: ${userId} not found.`);
+      return {
+        users: [],
+        message: 'User not found or no potential matches available.',
+      };
     }
 
-    const usersSnapshot = await usersQuery.get();
-    if (usersSnapshot.empty) break; // Exit if no more users to fetch
+    const userInterestInGender = currentUserData.userInterestInGender;
 
-    lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
+    let lastDoc; // To keep track of where to start in the next batch
+    let potentialMatches: admin.firestore.DocumentData[] = [];
 
-    const filteredUsers = usersSnapshot.docs
-      .filter((doc) => !excludedUserIds.includes(doc.id))
-      .map((doc) => ({ id: doc.id, ...doc.data() }));
+    while (potentialMatches.length < TARGET_SIZE) {
+      let usersQuery = firestore
+        .collection('users')
+        .where('gender', '==', userInterestInGender)
+        .orderBy('created_time')
+        .limit(BATCH_SIZE);
 
-    potentialMatches.push(...filteredUsers);
+      if (lastDoc) {
+        usersQuery = usersQuery.startAfter(lastDoc);
+      }
+
+      const usersSnapshot = await usersQuery.get();
+      if (usersSnapshot.empty) break; // Exit if no more users to fetch
+
+      lastDoc = usersSnapshot.docs[usersSnapshot.docs.length - 1];
+
+      const filteredUsers = usersSnapshot.docs
+        .filter((doc) => !excludedUserIds.includes(doc.id))
+        .map((doc) => ({ id: doc.id, ...doc.data() }));
+
+      potentialMatches.push(...filteredUsers);
+    }
+
+    // If there are more than the target size due to the last batch, slice it
+    if (potentialMatches.length > TARGET_SIZE) {
+      potentialMatches = potentialMatches.slice(0, TARGET_SIZE);
+    }
+
+    console.log(
+      `Fetched ${potentialMatches.length} potential matches for user with ID: ${userId}.`
+    );
+    return { users: potentialMatches };
+  } catch (error) {
+    console.error(
+      `Error fetching potential matches for user with ID: ${userId}:`,
+      error
+    );
+    // You can return a structured error to the caller
+    return {
+      users: [],
+      message: 'An unexpected error occurred while fetching potential matches.',
+    };
   }
-
-  // If there are more than the target size due to the last batch, slice it
-  if (potentialMatches.length > TARGET_SIZE) {
-    potentialMatches = potentialMatches.slice(0, TARGET_SIZE);
-  }
-
-  console.log(
-    `Fetched ${potentialMatches.length} potential matches for user with ID: ${userId}.`
-  );
-  return { users: potentialMatches };
 };
 
 export const dislikeUser = async (

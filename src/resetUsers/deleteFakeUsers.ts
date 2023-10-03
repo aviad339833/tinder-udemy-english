@@ -23,51 +23,55 @@ export async function deleteSubcollection(
   await batch.commit();
 }
 
-export const deleteSpecificUsers: () => Promise<void> = async () => {
-  // Define the list of emails of users to be deleted
-  const emailsToDelete = [
-    'f1@gmail.com',
-    'f2@gmail.com',
-    'f3@gmail.com',
-    'm1@gmail.com',
-    'm2@gmail.com',
-    'm3@gmail.com',
-  ];
+export const deleteAllUsersAndChats: () => Promise<void> = async () => {
+  // Define the UID to exclude
+  const excludedUid = 'u8wXgdinCSgVj88J85SS8vUfHOo1';
 
-  for (const email of emailsToDelete) {
+  // Delete all users
+  const usersSnapshot = await firestore.collection('users').get();
+
+  for (const userDoc of usersSnapshot.docs) {
     try {
-      // Fetch the user by email
-      const userRecord = await admin.auth().getUserByEmail(email);
-      const uid = userRecord.uid;
+      const uid = userDoc.id;
 
       // Delete subcollections associated with the user
-      const userDocRef = firestore.collection('users').doc(uid);
-      await deleteSubcollection(userDocRef, 'interactions');
-      await deleteSubcollection(userDocRef, 'matches');
-      await deleteSubcollection(userDocRef, 'usersWhoLikedMe');
+      await deleteSubcollection(userDoc.ref, 'interactions');
+      await deleteSubcollection(userDoc.ref, 'matches');
+      await deleteSubcollection(userDoc.ref, 'usersWhoLikedMe');
+      await deleteSubcollection(userDoc.ref, 'notifications');
 
       // Delete the user document from Firestore
-      await userDocRef.delete();
-      console.log(`User with email: ${email} deleted from Firestore.`);
+      await userDoc.ref.delete();
+      console.log(`User with UID: ${uid} deleted from Firestore.`);
 
-      // Delete chats and their subcollections
-      const chatDocRef = firestore.collection('chats').doc(uid);
-      await deleteSubcollection(chatDocRef, 'messages'); // Assuming a 'messages' subcollection for chats
-      await chatDocRef.delete();
-      console.log(
-        `Chat associated with email: ${email} deleted from Firestore.`
-      );
-
-      // Delete user from Firebase Authentication
-      await admin.auth().deleteUser(uid);
-      console.log(
-        `User with email: ${email} deleted from Firebase Authentication.`
-      );
+      // Only delete from Firebase Authentication if it's not the excluded UID
+      if (uid !== excludedUid) {
+        await admin.auth().deleteUser(uid);
+        console.log(
+          `User with UID: ${uid} deleted from Firebase Authentication.`
+        );
+      }
     } catch (error) {
-      console.error(`Error processing user with email ${email}: ${error}`);
+      console.error(`Error processing user with UID  ${error}`);
+    }
+  }
+
+  // Delete all chats and their subcollections
+  const chatsSnapshot = await firestore.collection('chats').get();
+
+  for (const chatDoc of chatsSnapshot.docs) {
+    try {
+      // Delete messages subcollection from the chat
+      await deleteSubcollection(chatDoc.ref, 'messages');
+
+      // Delete the chat document from Firestore
+      await chatDoc.ref.delete();
+      console.log(`Chat with ID: ${chatDoc.id} deleted from Firestore.`);
+    } catch (error) {
+      console.error(`Error processing chat with ID ${chatDoc.id}: ${error}`);
     }
   }
 };
 
-// Execute the function to delete specific users
-deleteSpecificUsers();
+// Execute the function to delete all users and chats
+deleteAllUsersAndChats();

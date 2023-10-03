@@ -31,11 +31,11 @@ export function capitalizeFirstLetter(string: string) {
 
 const woman: string[] = [
   'https://i.pinimg.com/originals/f7/fe/41/f7fe418d1987aae11f0701b266f753ed.jpg',
-  'https://nypost.com/wp-content/uploads/sites/2/2020/12/yael-most-beautiful-video.jpg?quality=75&strip=all&w=1024',
+  // 'https://nypost.com/wp-content/uploads/sites/2/2020/12/yael-most-beautiful-video.jpg?quality=75&strip=all&w=1024',
 ];
 const man: string[] = [
   'https://i.pinimg.com/564x/f2/09/bb/f209bbb7c607431acd4683ed0acc2a61.jpg',
-  'https://im.indiatimes.in/content/2023/Jun/india_649d635c6fde2.jpg',
+  // 'https://im.indiatimes.in/content/2023/Jun/india_649d635c6fde2.jpg',
 ];
 
 type Gender = 'male' | 'female';

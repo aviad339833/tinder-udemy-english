@@ -1,9 +1,13 @@
 import express from 'express';
 import { initializeApp } from 'firebase-admin/app';
 
-initializeApp();
+/* eslint-disable operator-linebreak */
 
+initializeApp();
 import * as functions from 'firebase-functions';
+
+import * as admin from 'firebase-admin';
+const firestore = admin.firestore();
 import {
   checkForMatchAndCreateChat,
   dislikeUser,
@@ -16,7 +20,6 @@ import {
   likeUser,
   sendMessage,
 } from './userHandlers';
-import { resetAllUsers } from './reseteDb';
 
 const app = express();
 
@@ -31,7 +34,7 @@ app.get('/fetchPotentialMatches', async (req, res) => {
   res.send(users);
 });
 
-app.get('/fetchAllMatches', async (req, res) => {
+app.get('/fetchAllMatchesForUser', async (req, res) => {
   const userId = req.query.userId as string;
   if (!userId) {
     return res.status(400).send('userId is required.');
@@ -133,9 +136,40 @@ app.post('/sendMessage', async (req, res) => {
   }
 });
 
-app.delete('/reset-all-users', async (req, res) => {
-  await resetAllUsers();
-  res.status(200).send('All users have been reset.');
-});
-
 export const api = functions.https.onRequest(app);
+
+// listeners!
+exports.listenToNewNotifications = functions.firestore
+  .document('users/{userId}/notifications/{notificationId}')
+  .onCreate(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async (
+      snap: functions.firestore.QueryDocumentSnapshot,
+      context: functions.EventContext
+    ) => {
+      const userId = context.params.userId;
+
+      // Logging the userId to check if the function gets triggered
+      functions.logger.log(`Notification created for user: ${userId}`);
+
+      const userDocRef = firestore.collection('users').doc(userId);
+      const userDoc = await userDocRef.get();
+
+      if (userDoc.exists) {
+        functions.logger.log(
+          `Updating notification status for user: ${userId}`
+        );
+        await userDocRef.update({ hasNewNotification: true });
+      } else {
+        // Logging that the user document was not found
+        functions.logger.warn(
+          `User: ${userId} not found. Creating a new user document.`
+        );
+
+        await userDocRef.set({
+          hasNewNotification: true,
+          // ... any other default fields you want for a new user document
+        });
+      }
+    }
+  );
